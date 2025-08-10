@@ -1,0 +1,23 @@
+services:
+  app:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=development
+      # This tells the app to connect to the emulators using the service name.
+      - DOCKER_ENV=true
+    depends_on:
+      - firebase-emulators
+
+  firebase-emulators:
+    image: firebase/emulators:latest
+    ports:
+      - '4000:4000' # UI
+      - '8080:8080' # Firestore
+      - '9099:9099' # Auth
+      - '9199:9199' # Storage
+    command: >
+      emulators:start --only auth,firestore,storage --import /app/seed_data --export-on-exit /app/seed_data
+    volumes:
+      - ./seed_data:/app/seed_data
