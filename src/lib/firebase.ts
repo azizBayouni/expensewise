@@ -20,8 +20,7 @@ const storage = getStorage(app);
 
 // Connect to emulators if in development
 if (process.env.NODE_ENV === 'development') {
-    // Always use localhost for emulators, as the browser will be connecting to them.
-    // The ports are mapped in docker-compose.yml.
+    // When running in Docker, the browser still connects to localhost.
     const emulatorHost = "localhost";
     connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true });
     connectFirestoreEmulator(firestore, emulatorHost, 8080);
