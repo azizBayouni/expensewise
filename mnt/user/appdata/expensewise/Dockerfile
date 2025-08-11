@@ -1,37 +1,28 @@
-# 1. Base Image
-FROM node:18-alpine AS base
+# 1. Base Image: Use a lightweight Node.js image
+FROM node:20-slim AS base
 
-# 2. Builder Stage
-FROM base AS builder
-RUN apk add --no-cache libc6-compat
+# 2. Set Working Directory
 WORKDIR /app
 
-# Install dependencies
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
-RUN \
-  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
-  elif [ -f package-lock.json ]; then npm ci; \
-  elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
-  else echo "Lockfile not found." && exit 1; \
-  fi
+# 3. Install pnpm: A fast, disk space-efficient package manager
+RUN npm install -g pnpm
 
-# Build the application
+# 4. Build Stage: Build the Next.js application
+FROM base AS build
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN npm run build
+RUN pnpm build
 
-# 3. Runner Stage
-FROM base AS runner
-WORKDIR /app
+# 5. Production Stage: Create the final, lean production image
+FROM base AS production
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/public ./public
 
-# Set production environment
-ENV NODE_ENV=production
-
-# Copy built files from the builder stage
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-
-# Expose port and start the app
+# Expose the port the app runs on
 EXPOSE 3000
-CMD ["npm", "start"]
+
+# Command to start the app
+CMD ["pnpm", "start"]
