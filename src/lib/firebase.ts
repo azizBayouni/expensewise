@@ -6,7 +6,10 @@ import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 import { firebaseConfig } from "./firebase-config";
 
-// Initialize Firebase
+// This file is intended for server-side Firebase admin SDK initialization in the future.
+// For now, it will just export the config.
+// All client-side firebase logic should use firebase-client.ts
+
 let app;
 if (!getApps().length) {
     app = initializeApp(firebaseConfig);
@@ -18,16 +21,15 @@ const auth = getAuth(app);
 const firestore = getFirestore(app);
 const storage = getStorage(app);
 
-// Connect to emulators if in development
+
 if (process.env.NODE_ENV === 'development') {
-    // When running inside a Docker container, the server-side code needs to use the service name.
-    // The client-side code (in the browser) still needs to use localhost.
-    const isServer = typeof window === 'undefined';
-    const host = isServer && process.env.DOCKER_ENV ? 'firebase-emulators' : 'localhost';
-    
-    connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
-    connectFirestoreEmulator(firestore, host, 8080);
-    connectStorageEmulator(storage, host, 9199);
+    // Check if we are on the client side before connecting to emulators
+    if (typeof window !== 'undefined') {
+        connectAuthEmulator(auth, `http://localhost:9099`, { disableWarnings: true });
+        connectFirestoreEmulator(firestore, 'localhost', 8080);
+        connectStorageEmulator(storage, 'localhost', 9199);
+    }
 }
+
 
 export { app, auth, firestore, storage };
