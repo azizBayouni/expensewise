@@ -33,11 +33,13 @@ import { useAuth } from './auth-provider';
 interface AddDebtDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onDebtAdded: () => void;
 }
 
 export function AddDebtDialog({
   isOpen,
   onOpenChange,
+  onDebtAdded,
 }: AddDebtDialogProps) {
   const { user } = useAuth();
   const [type, setType] = useState<'payable' | 'receivable'>('payable');
@@ -92,6 +94,7 @@ export function AddDebtDialog({
         description: `The debt for "${person}" has been created.`,
     });
 
+    onDebtAdded();
     onOpenChange(false);
   };
   
@@ -176,5 +179,3 @@ export function AddDebtDialog({
     </Dialog>
   );
 }
-
-    
