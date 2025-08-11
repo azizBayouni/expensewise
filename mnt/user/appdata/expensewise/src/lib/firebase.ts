@@ -23,7 +23,7 @@ if (process.env.NODE_ENV === 'development') {
     // When running inside a Docker container, the server-side code needs to use the service name.
     // The client-side code (in the browser) still needs to use localhost.
     const isServer = typeof window === 'undefined';
-    const host = isServer && process.env.DOCKER_ENV === 'true' ? 'firebase-emulators' : 'localhost';
+    const host = isServer && process.env.DOCKER_ENV ? 'firebase-emulators' : 'localhost';
     
     connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
     connectFirestoreEmulator(firestore, host, 8080);
