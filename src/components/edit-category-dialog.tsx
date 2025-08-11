@@ -33,6 +33,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast"
 import { cn } from '@/lib/utils';
 import { ScrollArea } from './ui/scroll-area';
+import { useAuth } from './auth-provider';
 
 interface EditCategoryDialogProps {
   isOpen: boolean;
@@ -47,6 +48,7 @@ export function EditCategoryDialog({
   category,
   allCategories,
 }: EditCategoryDialogProps) {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [parentId, setParentId] = useState<string | null>(null);
@@ -65,9 +67,9 @@ export function EditCategoryDialog({
     setIconSearch('');
   }, [category, isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (category) {
+    if (category && user) {
       try {
         const updatedCategoryData: Category = {
           ...category,
@@ -76,7 +78,7 @@ export function EditCategoryDialog({
           parentId,
           icon,
         };
-        updateCategory(updatedCategoryData);
+        await updateCategory(user.uid, updatedCategoryData);
         toast({
             title: "Category Updated",
             description: `The category "${name}" has been saved.`,
@@ -94,7 +96,7 @@ export function EditCategoryDialog({
   
   const parentCategoryOptions = useMemo(() => {
     if (!category) return [];
-    return allCategories.filter(c => {
+    return allCategories.filter(async c => {
       // Cannot be its own parent
       if (c.id === category.id) return false;
       // Cannot be a child of itself
@@ -104,7 +106,7 @@ export function EditCategoryDialog({
         current = allCategories.find(p => p.id === current!.parentId);
       }
       // Parent cannot be at level 3 already
-      if (getCategoryDepth(c.id, allCategories) >= 2) return false;
+      if (await getCategoryDepth(c.id, allCategories) >= 2) return false;
       return true;
     });
   }, [category, allCategories]);

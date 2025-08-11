@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -11,7 +11,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { categories as initialCategories, type Category } from '@/lib/data';
 import { PlusCircle, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -30,29 +29,48 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { EditCategoryDialog } from '@/components/edit-category-dialog';
 import { AddCategoryDialog } from '@/components/add-category-dialog';
-import { deleteCategory } from '@/services/category-service';
+import { deleteCategory, getAllCategories, getCategoryDepth } from '@/services/category-service';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/auth-provider';
+import type { Category } from '@/lib/data';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState([...initialCategories]);
+  const { user } = useAuth();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const { toast } = useToast();
 
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+        const cats = await getAllCategories(user.uid);
+        setCategories(cats);
+    } catch (error) {
+        console.error("Error fetching categories:", error);
+        toast({ title: "Error", description: "Could not fetch categories."});
+    } finally {
+        setIsLoading(false);
+    }
+  }, [user, toast]);
+
   useEffect(() => {
-    const handleStorageChange = () => {
-      setCategories([...initialCategories]);
+    if (user) {
+        fetchData();
+    }
+     const handleDataChange = () => {
+        if(user) fetchData();
     };
-    // This is a simplified way to listen for data changes.
-    // In a real app, you might use a more robust state management library.
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+    window.addEventListener('categoriesUpdated', handleDataChange);
+    return () => window.removeEventListener('categoriesUpdated', handleDataChange);
+  }, [user, fetchData]);
 
 
   const getCategoryName = (id: string | null): string => {
@@ -76,14 +94,15 @@ export default function CategoriesPage() {
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteClick = (categoryId: string) => {
+  const handleDeleteClick = async (categoryId: string) => {
+    if (!user) return;
     try {
-      deleteCategory(categoryId);
-      setCategories([...initialCategories]); // Refresh state from source
+      await deleteCategory(user.uid, categoryId);
       toast({
         title: "Category Deleted",
         description: "The category and its sub-categories have been deleted.",
       });
+      fetchData(); // Refresh data
     } catch (error: any) {
        toast({
         title: "Deletion Failed",
@@ -112,7 +131,40 @@ export default function CategoriesPage() {
   }
   
   const handleDialogClose = () => {
-     setCategories([...initialCategories]);
+     fetchData();
+  }
+  
+  if (isLoading) {
+    return (
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+            <div className="flex items-center justify-between">
+                <Skeleton className="h-10 w-64" />
+                <Skeleton className="h-10 w-36" />
+            </div>
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead><Skeleton className="h-6 w-32" /></TableHead>
+                            <TableHead><Skeleton className="h-6 w-24" /></TableHead>
+                            <TableHead><Skeleton className="h-6 w-48" /></TableHead>
+                            <TableHead className="text-right"><Skeleton className="h-6 w-24" /></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {[...Array(5)].map((_, i) => (
+                        <TableRow key={i}>
+                            <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+        </div>
+    )
   }
 
   return (

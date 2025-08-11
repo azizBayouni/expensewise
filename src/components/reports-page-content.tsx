@@ -7,14 +7,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { transactions, categories, wallets as allWallets } from '@/lib/data';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { getDefaultCurrency } from '@/services/settings-service';
 import type { DateRange } from 'react-day-picker';
 import { 
   parseISO, isWithinInterval, endOfDay, startOfDay, 
   startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, 
-  subMonths,
+  subMonths, subYears,
   format,
   isSameDay,
   isSameWeek,
@@ -37,24 +36,52 @@ import { CategoryDonutChart } from '@/components/category-donut-chart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
+import { useAuth } from './auth-provider';
+import { getAllTransactions } from '@/services/transaction-service';
+import { getAllCategories } from '@/services/category-service';
+import { getAllWallets } from '@/services/wallet-service';
+import type { Transaction, Category, Wallet } from '@/lib/data';
 
 export function ReportsPageContent() {
+  const { user } = useAuth();
   const [defaultCurrency, setDefaultCurrency] = useState('');
-  const [isClient, setIsClient] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [allWallets, setAllWallets] = useState<Wallet[]>([]);
   
   // State for filters
   const [selectedWallets, setSelectedWallets] = useState<string[]>([]);
-  const [timeRange, setTimeRange] = useState('this-month');
+  const [timeRange, setTimeRange] = useState('month');
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [dateOffset, setDateOffset] = useState(0);
 
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+        const [trans, cats, wals, currency] = await Promise.all([
+            getAllTransactions(user.uid),
+            getAllCategories(user.uid),
+            getAllWallets(user.uid),
+            getDefaultCurrency(user.uid),
+        ]);
+        setTransactions(trans);
+        setCategories(cats);
+        setAllWallets(wals);
+        setDefaultCurrency(currency);
+    } catch (error) {
+        console.error("Error fetching reports data:", error);
+    } finally {
+        setIsLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
-    setIsClient(true);
-    setDefaultCurrency(getDefaultCurrency());
-    
     // Initialize state from URL params
     const walletsParam = searchParams.get('wallets');
     if (walletsParam) {
@@ -79,6 +106,7 @@ export function ReportsPageContent() {
             const toDate = parseISO(toParam);
             if (!isNaN(fromDate.getTime()) && !isNaN(toDate.getTime())) {
                 setCustomDateRange({ from: fromDate, to: toDate });
+                 setTimeRange('custom');
             }
         } catch (e) {
             console.error("Invalid date in search params", e);
@@ -86,9 +114,15 @@ export function ReportsPageContent() {
     }
 
   }, [searchParams]);
+
+  useEffect(() => {
+    if (user) {
+        fetchData();
+    }
+  }, [user, fetchData]);
   
   useEffect(() => {
-    if (!isClient) return;
+    if (isLoading) return; // Don't update URL while loading initial data
     const params = new URLSearchParams(searchParams);
     
     if (selectedWallets.length > 0) {
@@ -117,10 +151,9 @@ export function ReportsPageContent() {
         params.delete('to');
     }
     
-    // Using replace to avoid adding to history stack for every filter change
     router.replace(`/reports?${params.toString()}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWallets, timeRange, customDateRange, dateOffset, isClient]);
+  }, [selectedWallets, timeRange, customDateRange, dateOffset, isLoading]);
 
   const dateRange = useMemo(() => {
     const now = new Date();
@@ -166,7 +199,7 @@ export function ReportsPageContent() {
       
       return walletFilterMatch && dateFilterMatch;
     });
-  }, [selectedWallets, dateRange]);
+  }, [selectedWallets, dateRange, transactions]);
 
   const summary = useMemo(() => {
     const totalIncome = reportableTransactions
@@ -179,7 +212,6 @@ export function ReportsPageContent() {
 
     const netIncome = totalIncome - totalExpense;
     
-    // Simplified balance calculation
     const allTransactionsBeforeRange = transactions.filter(t => 
         dateRange?.from && parseISO(t.date) < startOfDay(dateRange.from)
     );
@@ -188,7 +220,7 @@ export function ReportsPageContent() {
 
 
     return { totalIncome, totalExpense, netIncome, openingBalance, endingBalance };
-  }, [reportableTransactions, dateRange]);
+  }, [reportableTransactions, dateRange, transactions]);
 
 
   const formatCurrency = (amount: number) => {
@@ -207,15 +239,6 @@ export function ReportsPageContent() {
     label: w.name,
   }));
   
-  const categoryOptions = useMemo(() => {
-    return categories
-      .filter(c => c.parentId === null) // Only top-level categories
-      .map(c => ({
-        value: c.id,
-        label: c.name,
-      }));
-  }, []);
-
   const expenseByCategory = useMemo(() => {
     const expenses = reportableTransactions.filter(t => t.type === 'expense');
     
@@ -250,7 +273,7 @@ export function ReportsPageContent() {
       value: data.value,
       icon: data.icon,
     }));
-  }, [reportableTransactions]);
+  }, [reportableTransactions, categories]);
   
   const handleTimeRangeChange = (value: string) => {
     setTimeRange(value);
@@ -303,7 +326,7 @@ export function ReportsPageContent() {
   }
 
 
-  if (!isClient) {
+  if (isLoading) {
     return (
         <div className="flex-1 space-y-4 p-4 md:p-6">
             <Skeleton className="h-10 w-48" />

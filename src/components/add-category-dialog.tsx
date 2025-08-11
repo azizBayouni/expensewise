@@ -33,6 +33,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast"
 import { cn } from '@/lib/utils';
 import { ScrollArea } from './ui/scroll-area';
+import { useAuth } from './auth-provider';
 
 interface AddCategoryDialogProps {
   isOpen: boolean;
@@ -45,6 +46,7 @@ export function AddCategoryDialog({
   onOpenChange,
   allCategories
 }: AddCategoryDialogProps) {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [parentId, setParentId] = useState<string | null>(null);
@@ -64,10 +66,11 @@ export function AddCategoryDialog({
     }
   }, [isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     try {
-      addCategory({
+      await addCategory(user.uid, {
         name,
         type,
         parentId,
@@ -87,16 +90,19 @@ export function AddCategoryDialog({
     }
   };
   
-  const parentCategoryOptions = useMemo(() => {
-    // Only allow nesting up to 2 levels deep (so parent can be level 1 or 2)
-    return allCategories.filter(c => getCategoryDepth(c.id) < 2);
+  const parentCategoryOptions = useMemo(async () => {
+    const categoriesWithDepth = await Promise.all(allCategories.map(async c => ({
+        ...c,
+        depth: await getCategoryDepth(c.id, allCategories)
+    })));
+    return categoriesWithDepth.filter(c => c.depth < 2);
   }, [allCategories]);
 
   const renderParentCategoryOptions = () => {
-    const topLevelCategories = parentCategoryOptions.filter(c => c.parentId === null);
+    const topLevelCategories = allCategories.filter(c => c.parentId === null);
 
     const getOptionsForParent = (pId: string | null, level: number): JSX.Element[] => {
-        return parentCategoryOptions
+        return allCategories
             .filter(c => c.parentId === pId)
             .flatMap(c => {
                 const option = (
