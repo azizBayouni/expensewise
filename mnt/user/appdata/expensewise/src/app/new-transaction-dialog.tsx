@@ -487,3 +487,5 @@ export function NewTransactionDialog({
     </Dialog>
   );
 }
+
+    

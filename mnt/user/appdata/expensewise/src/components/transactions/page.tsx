@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -21,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { PlusCircle, Paperclip, Calendar as CalendarIcon } from 'lucide-react';
-import { NewTransactionDialog } from '@/app/new-transaction-dialog';
+import { NewTransactionDialog } from '../new-transaction-dialog';
 import { EditTransactionDialog } from '@/components/edit-transaction-dialog';
 import { getDefaultCurrency } from '@/services/settings-service';
 import { MultiSelect } from '@/components/ui/multi-select';
@@ -35,14 +36,14 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/components/auth-provider';
 import { getAllTransactions } from '@/services/transaction-service';
 import { getAllCategories } from '@/services/category-service';
+import { getCategoryDepth } from '@/lib/data';
 import { getAllWallets } from '@/services/wallet-service';
 import { getAllEvents } from '@/services/event-service';
 import type { Transaction, Category, Wallet, Event } from '@/lib/data';
-import { getCategoryDepth } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/components/auth-provider';
 
 export default function TransactionsPage() {
   const { user } = useAuth();
@@ -308,8 +309,8 @@ export default function TransactionsPage() {
       </div>
        <NewTransactionDialog 
         isOpen={isAddDialogOpen} 
-        onOpenChange={setIsAddDialogOpen}
-        onTransactionAdded={fetchData}
+        onOpenChange={setIsAddDialogOpen} 
+        onTransactionAdded={fetchData} 
       />
       {selectedTransaction && (
         <EditTransactionDialog 
