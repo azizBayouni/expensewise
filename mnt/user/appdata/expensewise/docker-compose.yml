@@ -1,3 +1,4 @@
+
 services:
   app:
     build: .
@@ -21,3 +22,5 @@ services:
       emulators:start --only auth,firestore,storage --import /app/seed_data --export-on-exit /app/seed_data
     volumes:
       - ./seed_data:/app/seed_data
+
+    

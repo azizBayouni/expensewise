@@ -36,7 +36,6 @@ import { getWalletBalance } from '@/lib/data';
 import type { Transaction, Wallet as WalletType, Debt } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// This will be the placeholder user ID for all Firestore operations.
 const MOCK_USER_ID = 'dev-user';
 
 export default function Dashboard() {
@@ -54,15 +53,16 @@ export default function Dashboard() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-        const [trans, wals, dts] = await Promise.all([
+        const [trans, wals, dts, currency] = await Promise.all([
             getAllTransactions(MOCK_USER_ID),
             getAllWallets(MOCK_USER_ID),
             getAllDebts(MOCK_USER_ID),
+            getDefaultCurrency(MOCK_USER_ID),
         ]);
         setTransactions(trans);
         setWallets(wals);
         setDebts(dts);
-        setDefaultCurrency(await getDefaultCurrency(MOCK_USER_ID));
+        setDefaultCurrency(currency);
     } catch (error) {
         console.error("Error fetching dashboard data:", error);
     } finally {
@@ -95,7 +95,8 @@ export default function Dashboard() {
     const thisMonthTransactions = reportableTransactions.filter(t => isThisMonth(parseISO(t.date)));
 
     const totalBalance = wallets.reduce((sum, wallet) => {
-        return sum + getWalletBalance(wallet, transactions);
+        const walletTransactions = transactions.filter(t => t.wallet === wallet.name);
+        return sum + getWalletBalance(wallet, walletTransactions);
     }, 0);
 
     const monthlyIncome = thisMonthTransactions
@@ -125,8 +126,8 @@ export default function Dashboard() {
         activeDebtsAmount,
         activePayablesCount: activePayables.length,
         activeReceivablesCount: activeReceivables.length,
-        recentTransactions: reportableTransactions.slice(0, 5),
-        totalTransactionsThisMonth: reportableTransactions.length,
+        recentTransactions: [...transactions].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()).slice(0, 5),
+        totalTransactionsThisMonth: thisMonthTransactions.length,
         thisMonthQuery: `from=${monthStart}&to=${monthEnd}`
     }
   }, [transactions, wallets, debts]);
@@ -277,7 +278,7 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle>Recent Transactions</CardTitle>
                 <CardDescription>
-                  You made {dashboardData.totalTransactionsThisMonth} transactions this month.
+                  You have {dashboardData.recentTransactions.length} recent transactions.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -309,15 +310,16 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-      <NewTransactionDialog isOpen={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onTransactionAdded={fetchData} />
+      <NewTransactionDialog isOpen={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} />
       {selectedTransaction && (
         <EditTransactionDialog 
             isOpen={isEditDialogOpen} 
             onOpenChange={setIsEditDialogOpen} 
             transaction={selectedTransaction}
-            onTransactionUpdated={fetchData}
         />
       )}
     </>
   );
 }
+
+    

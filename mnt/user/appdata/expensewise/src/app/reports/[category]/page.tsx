@@ -329,8 +329,9 @@ export default function CategoryReportDetails() {
         isOpen={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
         transaction={selectedTransaction}
-        onTransactionUpdated={fetchData}
       />
     </>
   );
 }
+
+    

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -63,14 +62,12 @@ interface EditTransactionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   transaction: Transaction | null;
-  onTransactionUpdated: () => void;
 }
 
 export function EditTransactionDialog({
   isOpen,
   onOpenChange,
   transaction,
-  onTransactionUpdated
 }: EditTransactionDialogProps) {
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState<number | ''>('');
@@ -125,7 +122,7 @@ export function EditTransactionDialog({
       setAmount(amountToConvert);
       return;
     }
-    const apiKey = getExchangeRateApiKey();
+    const apiKey = await getExchangeRateApiKey(MOCK_USER_ID);
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
@@ -137,7 +134,7 @@ export function EditTransactionDialog({
     }
     setIsConverting(true);
     try {
-      const converted = await convertAmountService(amountToConvert, from, to);
+      const converted = await convertAmountService(MOCK_USER_ID, amountToConvert, from, to);
       setAmount(converted);
       if (from !== to) {
         toast({
@@ -160,7 +157,7 @@ export function EditTransactionDialog({
 
   const resetAndInitialize = useCallback(async () => {
     await fetchData();
-    const travelMode = getTravelMode();
+    const travelMode = getTravelMode(MOCK_USER_ID);
     setIsTravelMode(travelMode.isActive);
 
     if (transaction) {
@@ -272,7 +269,6 @@ export function EditTransactionDialog({
         description: 'Your transaction has been successfully updated.',
       });
       
-      onTransactionUpdated();
       onOpenChange(false);
     }
   };
@@ -285,7 +281,6 @@ export function EditTransactionDialog({
             description: 'The transaction has been successfully deleted.',
             variant: 'destructive'
         });
-        onTransactionUpdated();
         onOpenChange(false);
     }
   }
@@ -305,7 +300,7 @@ export function EditTransactionDialog({
     }
   };
   
-  const renderCategoryOptions = (isCommand: boolean) => {
+  const renderCategoryOptions = () => {
     const categoriesWithDepth = selectableCategories.map(c => ({...c, depth: getCategoryDepth(c.id, selectableCategories)}));
     const sortedCategories = categoriesWithDepth.sort((a,b) => {
         if(a.depth < b.depth) return -1;
@@ -469,7 +464,7 @@ export function EditTransactionDialog({
                         <CommandList>
                             <CommandEmpty>No category found.</CommandEmpty>
                             <CommandGroup>
-                                {renderCategoryOptions(true)}
+                                {renderCategoryOptions()}
                             </CommandGroup>
                         </CommandList>
                         </Command>
@@ -601,3 +596,5 @@ export function EditTransactionDialog({
     </Dialog>
   );
 }
+
+    

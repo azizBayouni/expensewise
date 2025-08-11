@@ -50,13 +50,11 @@ const MOCK_USER_ID = 'dev-user';
 interface NewTransactionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onTransactionAdded: () => void;
 }
 
 export function NewTransactionDialog({
   isOpen,
   onOpenChange,
-  onTransactionAdded
 }: NewTransactionDialogProps) {
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState<number | ''>('');
@@ -88,7 +86,7 @@ export function NewTransactionDialog({
         setAmount(amountToConvert);
         return;
     }
-    const apiKey = getExchangeRateApiKey();
+    const apiKey = await getExchangeRateApiKey(MOCK_USER_ID);
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
@@ -100,7 +98,7 @@ export function NewTransactionDialog({
     }
     setIsConverting(true);
     try {
-      const converted = await convertAmountService(amountToConvert, from, to);
+      const converted = await convertAmountService(MOCK_USER_ID, amountToConvert, from, to);
       setAmount(converted);
        if (from !== to) {
         toast({
@@ -135,7 +133,7 @@ export function NewTransactionDialog({
     setAllEvents(evs);
     setDefaultCurrency(defCurrency);
 
-    const travelMode = getTravelMode();
+    const travelMode = getTravelMode(MOCK_USER_ID);
     setIsTravelMode(travelMode.isActive);
     
     setType('expense');
@@ -220,7 +218,6 @@ export function NewTransactionDialog({
       description: 'Your new transaction has been successfully recorded.',
     });
 
-    onTransactionAdded();
     onOpenChange(false);
   };
 
@@ -263,7 +260,7 @@ export function NewTransactionDialog({
     return availableCategories;
   }, [wallet, allCategories]);
 
-  const renderCategoryOptions = (isCommand: boolean) => {
+  const renderCategoryOptions = () => {
     const categoriesWithDepth = selectableCategories.map(c => ({...c, depth: getCategoryDepth(c.id, selectableCategories)}));
     const sortedCategories = categoriesWithDepth.sort((a,b) => {
         if(a.depth < b.depth) return -1;
@@ -394,7 +391,7 @@ export function NewTransactionDialog({
                          <CommandList>
                             <CommandEmpty>No category found.</CommandEmpty>
                             <CommandGroup>
-                                {renderCategoryOptions(true)}
+                                {renderCategoryOptions()}
                             </CommandGroup>
                         </CommandList>
                         </Command>
@@ -484,3 +481,5 @@ export function NewTransactionDialog({
     </Dialog>
   );
 }
+
+    
