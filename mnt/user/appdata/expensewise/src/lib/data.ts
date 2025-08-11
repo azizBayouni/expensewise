@@ -167,7 +167,7 @@ export const emojiIcons: EmojiIcon[] = [
 
 // Helper to calculate wallet balance
 export const getWalletBalance = (wallet: Wallet, allTransactions: Transaction[]) => {
-    // Start with the wallet's initial balance (which is 0 or what was set at creation)
+    // Start with the wallet's initial balance
     const initialBalance = wallet.balance || 0;
 
     const relevantTransactions = allTransactions.filter(t => t.wallet === wallet.name);
@@ -181,10 +181,5 @@ export const getWalletBalance = (wallet: Wallet, allTransactions: Transaction[])
     }, 0);
 
     // Return initial balance + transaction effect.
-    // NOTE: This assumes wallet.balance is the *initial* balance, not the current one.
-    // If wallet.balance is meant to be the running total, this logic is incorrect.
-    // Based on the Firestore structure, it seems `balance` is the initial amount.
     return initialBalance + transactionNet;
 }
-
-    

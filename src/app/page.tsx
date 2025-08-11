@@ -29,15 +29,15 @@ import { TrendingReportCard } from '@/components/trending-report-card';
 import { EditTransactionDialog } from '@/components/edit-transaction-dialog';
 import { isThisMonth, parseISO, startOfMonth, endOfMonth, format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/components/auth-provider';
-import { useRouter } from 'next/navigation';
-import { getAllTransactions, getTransactionsForWallet } from '@/services/transaction-service';
+import { getAllTransactions } from '@/services/transaction-service';
 import { getAllWallets } from '@/services/wallet-service';
 import { getAllDebts } from '@/services/debt-service';
 import { getWalletBalance } from '@/lib/data';
 import type { Transaction, Wallet as WalletType, Debt } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// This will be the placeholder user ID for all Firestore operations.
+const MOCK_USER_ID = 'dev-user';
 
 export default function Dashboard() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -51,36 +51,28 @@ export default function Dashboard() {
   const [wallets, setWallets] = useState<WalletType[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
 
-  const { user } = useAuth();
-  const router = useRouter();
-
   const fetchData = useCallback(async () => {
-    if (!user) return;
     setIsLoading(true);
     try {
         const [trans, wals, dts] = await Promise.all([
-            getAllTransactions(user.uid),
-            getAllWallets(user.uid),
-            getAllDebts(user.uid),
+            getAllTransactions(MOCK_USER_ID),
+            getAllWallets(MOCK_USER_ID),
+            getAllDebts(MOCK_USER_ID),
         ]);
         setTransactions(trans);
         setWallets(wals);
         setDebts(dts);
-        setDefaultCurrency(await getDefaultCurrency(user.uid));
+        setDefaultCurrency(await getDefaultCurrency(MOCK_USER_ID));
     } catch (error) {
         console.error("Error fetching dashboard data:", error);
     } finally {
         setIsLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
-    } else {
-      fetchData();
-    }
-  }, [user, router, fetchData]);
+    fetchData();
+  }, [fetchData]);
   
   useEffect(() => {
     const handleDataChange = () => fetchData();

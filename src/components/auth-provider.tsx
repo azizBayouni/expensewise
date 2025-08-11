@@ -7,8 +7,12 @@ import { auth } from '@/lib/firebase';
 import { usePathname, useRouter } from 'next/navigation';
 import { Skeleton } from './ui/skeleton';
 
+// A mock user ID for development without authentication.
+// All data will be saved under this user in Firestore.
+const MOCK_USER_ID = 'dev-user';
+
 interface AuthContextType {
-  user: User | null;
+  user: { uid: string, displayName: string | null, email: string | null, photoURL: string | null } | null;
   loading: boolean;
   logout: () => Promise<void>;
 }
@@ -16,45 +20,22 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const pathname = usePathname();
+  const [user, setUser] = useState<AuthContextType['user'] | null>({
+      uid: MOCK_USER_ID,
+      displayName: 'Dev User',
+      email: 'dev@expensewise.app',
+      photoURL: null
+  });
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-      
-      const isAuthPage = pathname === '/login' || pathname === '/signup';
-
-      if (!user && !isAuthPage) {
-        router.push('/login');
-      }
-      if (user && isAuthPage) {
-        router.push('/');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [pathname, router]);
-
   const logout = async () => {
-    await signOut(auth);
-    router.push('/login');
+    // In a real scenario, you'd sign out. Here we do nothing.
+    return Promise.resolve();
   };
 
   const value = { user, loading, logout };
   
-  const isAuthPage = pathname === '/login' || pathname === '/signup';
-  if (loading && !isAuthPage) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Skeleton className="h-12 w-12 rounded-full" />
-      </div>
-    );
-  }
-
   return (
     <AuthContext.Provider value={value}>
       {children}
@@ -65,7 +46,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    // Return a mock context if not within a provider.
+    return { 
+        user: { 
+            uid: MOCK_USER_ID, 
+            displayName: 'Dev User', 
+            email: 'dev@expensewise.app', 
+            photoURL: null 
+        }, 
+        loading: false,
+        logout: async () => {} 
+    };
   }
   return context;
 }
