@@ -2,13 +2,7 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useMemo, useState, useEffect } from 'react';
-import {
-  transactions as allTransactions,
-  categories,
-  type Category,
-  type Transaction,
-} from '@/lib/data';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { getDefaultCurrency } from '@/services/settings-service';
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,22 +29,47 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { EditTransactionDialog } from '@/components/edit-transaction-dialog';
+import { getAllTransactions } from '@/services/transaction-service';
+import { getAllCategories } from '@/services/category-service';
+import type { Transaction, Category } from '@/lib/data';
+
+const MOCK_USER_ID = 'dev-user';
 
 export default function CategoryReportDetails() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
   const [defaultCurrency, setDefaultCurrency] = useState('');
-  const [isClient, setIsClient] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [activeTab, setActiveTab] = useState('breakdown');
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+        const [trans, cats, currency] = await Promise.all([
+            getAllTransactions(MOCK_USER_ID),
+            getAllCategories(MOCK_USER_ID),
+            getDefaultCurrency(MOCK_USER_ID),
+        ]);
+        setTransactions(trans);
+        setCategories(cats);
+        setDefaultCurrency(currency);
+    } catch (error) {
+        console.error("Error fetching category report data:", error);
+    } finally {
+        setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    setIsClient(true);
-    setDefaultCurrency(getDefaultCurrency());
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
   const { category: categoryName } = params;
 
@@ -100,7 +119,7 @@ export default function CategoryReportDetails() {
     
     const hierarchyNames = categories.filter(c => hierarchy.includes(c.id)).map(c => c.name);
 
-    const transactions = allTransactions.filter((t) => {
+    const filtered = transactions.filter((t) => {
       const dateFilterMatch =
         !dateRange.from ||
         !dateRange.to ||
@@ -116,8 +135,8 @@ export default function CategoryReportDetails() {
       return hierarchyNames.includes(t.category);
     });
 
-    return { filteredTransactions: transactions, categoryHierarchy: hierarchy };
-  }, [categoryName, dateRange]);
+    return { filteredTransactions: filtered, categoryHierarchy: hierarchy };
+  }, [categoryName, dateRange, transactions, categories]);
 
   const totalExpense = useMemo(() => {
     return filteredTransactions.reduce((sum, t) => sum + t.amount, 0);
@@ -157,7 +176,7 @@ export default function CategoryReportDetails() {
       .map(([name, data]) => ({ name, ...data }))
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [filteredTransactions, categoryHierarchy]);
+  }, [filteredTransactions, categoryHierarchy, categories]);
   
   const displayedTransactions = useMemo(() => {
     if (!selectedSubCategory) {
@@ -172,7 +191,7 @@ export default function CategoryReportDetails() {
       }
       return false;
     });
-  }, [filteredTransactions, selectedSubCategory]);
+  }, [filteredTransactions, selectedSubCategory, categories]);
   
   const formatCurrency = (value: number) => {
     if (!defaultCurrency) return '...';
@@ -192,7 +211,7 @@ export default function CategoryReportDetails() {
     setActiveTab('transactions');
   };
 
-  if (!isClient) {
+  if (isLoading) {
     return (
       <div className="flex-1 space-y-4 p-4 md:p-6">
         <div className="flex items-center gap-2">
@@ -310,6 +329,7 @@ export default function CategoryReportDetails() {
         isOpen={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
         transaction={selectedTransaction}
+        onTransactionUpdated={fetchData}
       />
     </>
   );

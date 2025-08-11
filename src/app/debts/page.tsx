@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -13,7 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { debts as allDebts, type Debt } from '@/lib/data';
+import { type Debt } from '@/lib/data';
 import { PlusCircle, Info } from 'lucide-react';
 import { getDefaultCurrency } from '@/services/settings-service';
 import { AddDebtDialog } from '@/components/add-debt-dialog';
@@ -24,25 +24,43 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { EditDebtDialog } from '@/components/edit-debt-dialog';
+import { getAllDebts } from '@/services/debt-service';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const MOCK_USER_ID = 'dev-user';
 
 export default function DebtsPage() {
   const [defaultCurrency, setDefaultCurrency] = useState('USD');
-  const [debts, setDebts] = useState([...allDebts]);
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
 
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+        const [userDebts, currency] = await Promise.all([
+            getAllDebts(MOCK_USER_ID),
+            getDefaultCurrency(MOCK_USER_ID),
+        ]);
+        setDebts(userDebts);
+        setDefaultCurrency(currency);
+    } catch (error) {
+        console.error("Error fetching debts data:", error);
+    } finally {
+        setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    setDefaultCurrency(getDefaultCurrency());
-    
+    fetchData();
     const handleDataChange = () => {
-        setDebts([...allDebts]);
+        fetchData();
     }
     window.addEventListener('debtsUpdated', handleDataChange);
     return () => window.removeEventListener('debtsUpdated', handleDataChange);
-
-  }, []);
+  }, [fetchData]);
 
   const payables = debts.filter((d) => d.type === 'payable');
   const receivables = debts.filter((d) => d.type === 'receivable');
@@ -53,10 +71,6 @@ export default function DebtsPage() {
       currency: currency,
     }).format(amount);
   };
-  
-  const handleDialogClose = () => {
-    setDebts([...allDebts]);
-  }
   
   const handleRowClick = (debt: Debt) => {
     setSelectedDebt(debt);
@@ -114,6 +128,40 @@ export default function DebtsPage() {
       </TableCell>
     </TableRow>
   )};
+
+  if (isLoading) {
+    return (
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+            <div className="flex items-center justify-between">
+                <Skeleton className="h-10 w-64" />
+                <Skeleton className="h-10 w-36" />
+            </div>
+            <Skeleton className="h-10 w-48" />
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead><Skeleton className="h-6 w-32" /></TableHead>
+                            <TableHead><Skeleton className="h-6 w-24" /></TableHead>
+                            <TableHead><Skeleton className="h-6 w-24" /></TableHead>
+                            <TableHead className="text-right"><Skeleton className="h-6 w-32" /></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {[...Array(3)].map((_, i) => (
+                        <TableRow key={i}>
+                            <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                            <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+        </div>
+    )
+  }
 
   return (
     <>
@@ -177,14 +225,14 @@ export default function DebtsPage() {
         isOpen={isAddDialogOpen}
         onOpenChange={(open) => {
             setIsAddDialogOpen(open);
-            if (!open) handleDialogClose();
+            if (!open) fetchData();
         }}
      />
      <EditDebtDialog
         isOpen={isEditDialogOpen}
         onOpenChange={(open) => {
             setIsEditDialogOpen(open);
-            if (!open) handleDialogClose();
+            if (!open) fetchData();
         }}
         debt={selectedDebt}
      />
