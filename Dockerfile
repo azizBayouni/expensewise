@@ -1,40 +1,53 @@
-# 1. Dependency Installation Stage
-FROM node:20-slim AS deps
+# 1. Install dependencies only when needed
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install
 
-# 2. Application Builder Stage
-FROM node:20-slim AS builder
+# Install dependencies based on the preferred package manager
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+RUN \
+  if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
+  elif [ -f package-lock.json ]; then npm ci; \
+  elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
+  else echo "Lockfile not found." && exit 1; \
+  fi
+
+# 2. Rebuild the source code only when needed
+FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Next.js collects completely anonymous telemetry data about general usage.
+# Learn more here: https://nextjs.org/telemetry
+# Uncomment the following line in case you want to disable telemetry during the build.
+# ENV NEXT_TELEMETRY_DISABLED 1
+
 RUN npm run build
 
-# 3. Final Runner Stage
-FROM node:20-slim AS runner
+# 3. Production image, copy all the files and run next
+FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Set environment to production
-ENV NODE_ENV=production
+ENV NODE_ENV production
+# Uncomment the following line in case you want to disable telemetry during runtime.
+# ENV NEXT_TELEMETRY_DISABLED 1
 
-# Create a non-root user for security
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/package.json ./package.json
+
+# Automatically leverage output traces to reduce image size
+# https://nextjs.org/docs/advanced-features/output-file-tracing
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
 USER nextjs
 
-# Copy built application from the 'builder' stage
-COPY --from=builder /app/.next ./.next
-# The 'public' directory is optional in Next.js. This line is commented out
-# to prevent build errors if the directory doesn't exist.
-# If you add a 'public' folder later, you can uncomment this line.
-# COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/next.config.ts ./next.config.ts
-COPY --from=builder /app/node_modules ./node_modules
+EXPOSE 3000
 
-# Expose the port the app runs on
-EXPOSE 9002
+ENV PORT 3000
 
-# Command to start the app
-CMD ["npm", "start", "--", "-p", "9002"]
+CMD ["node", "server.js"]
