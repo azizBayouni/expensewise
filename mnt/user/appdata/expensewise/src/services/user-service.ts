@@ -1,7 +1,7 @@
 
 'use server';
 
-import db from '@/lib/db';
+import db from '../lib/db';
 
 type User = {
     uid: string;
@@ -30,7 +30,10 @@ export async function updateUserProfile(profile: { displayName?: string }): Prom
     try {
       const stmt = db.prepare('UPDATE users SET name = ? WHERE id = ?');
       stmt.run(profile.displayName, 'dev-user');
-      window.dispatchEvent(new Event('profileUpdated'));
+      // Dispatch event for client-side updates if needed
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('profileUpdated'));
+      }
     } catch (error) {
       console.error("Error updating profile:", error);
       throw error;

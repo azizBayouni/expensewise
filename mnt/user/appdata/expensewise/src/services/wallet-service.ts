@@ -1,8 +1,8 @@
 
 'use server';
 
-import db from '@/lib/db';
-import type { Wallet } from '@/lib/data';
+import db from '../lib/db';
+import type { Wallet } from '../lib/data';
 import { convertAmount } from './transaction-service';
 import { randomUUID } from 'crypto';
 
@@ -10,6 +10,7 @@ export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id'
     const newWallet = { ...newWalletData, id: randomUUID(), userId, balance: 0, linkedCategoryIds: JSON.stringify(newWalletData.linkedCategoryIds || []) };
     const stmt = db.prepare('INSERT INTO wallets (id, userId, name, currency, balance, icon, linkedCategoryIds) VALUES (?, ?, ?, ?, ?, ?, ?)');
     stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.currency, newWallet.balance, newWallet.icon, newWallet.linkedCategoryIds);
+    window.dispatchEvent(new Event('walletsUpdated'));
 }
 
 export async function getAllWallets(userId: string): Promise<Wallet[]> {
@@ -25,6 +26,7 @@ export async function updateWallet(userId: string, updatedWallet: Wallet): Promi
   const { id, ...walletData } = updatedWallet;
   const stmt = db.prepare('UPDATE wallets SET name = ?, currency = ?, balance = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?');
   stmt.run(walletData.name, walletData.currency, walletData.balance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
+  window.dispatchEvent(new Event('walletsUpdated'));
 }
 
 export async function deleteWallet(userId: string, walletId: string): Promise<void> {
@@ -35,11 +37,13 @@ export async function deleteWallet(userId: string, walletId: string): Promise<vo
     if (defaultWallet === walletId) {
         await clearDefaultWallet(userId);
     }
+    window.dispatchEvent(new Event('walletsUpdated'));
 }
 
 export async function setDefaultWallet(userId: string, walletId: string): Promise<void> {
     const stmt = db.prepare('INSERT INTO settings (userId, defaultWalletId) VALUES (?, ?) ON CONFLICT(userId) DO UPDATE SET defaultWalletId = excluded.defaultWalletId');
     stmt.run(userId, walletId);
+    window.dispatchEvent(new Event('defaultWalletChanged'));
 }
 
 export async function getDefaultWallet(userId: string): Promise<string | null> {
@@ -51,6 +55,7 @@ export async function getDefaultWallet(userId: string): Promise<string | null> {
 export async function clearDefaultWallet(userId: string): Promise<void> {
     const stmt = db.prepare('UPDATE settings SET defaultWalletId = NULL WHERE userId = ?');
     stmt.run(userId);
+    window.dispatchEvent(new Event('defaultWalletChanged'));
 }
 
 export async function convertAllWallets(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
@@ -68,4 +73,5 @@ export async function convertAllWallets(userId: string, fromCurrency: string, to
     });
 
     updateTransaction(allWallets);
+    window.dispatchEvent(new Event('walletsUpdated'));
 }

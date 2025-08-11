@@ -21,6 +21,7 @@ export async function addDebt(userId: string, newDebtData: Omit<Debt, 'id' | 'st
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(newDebt.id, userId, newDebt.type, newDebt.person, newDebt.amount, newDebt.currency, newDebt.dueDate, newDebt.status, newDebt.note, JSON.stringify(newDebt.payments));
+    window.dispatchEvent(new Event('debtsUpdated'));
 }
 
 export async function getAllDebts(userId: string): Promise<Debt[]> {
@@ -40,11 +41,13 @@ export async function updateDebt(userId: string, updatedDebt: Debt): Promise<voi
     WHERE id = ? AND userId = ?
   `);
   stmt.run(debtData.type, debtData.person, debtData.amount, debtData.currency, debtData.dueDate, debtData.status, debtData.note, JSON.stringify(debtData.payments), id, userId);
+  window.dispatchEvent(new Event('debtsUpdated'));
 }
 
 export async function deleteDebt(userId: string, debtId: string): Promise<void> {
     const stmt = db.prepare('DELETE FROM debts WHERE id = ? AND userId = ?');
     stmt.run(debtId, userId);
+    window.dispatchEvent(new Event('debtsUpdated'));
 }
 
 export async function addPaymentToDebt(userId: string, debt: Debt, paymentAmount: number): Promise<Debt> {
@@ -98,6 +101,5 @@ export async function convertAllDebts(userId: string, fromCurrency: string, toCu
     });
 
     updateTransaction(allDebts);
+    window.dispatchEvent(new Event('debtsUpdated'));
 }
-
-    

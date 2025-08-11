@@ -1,9 +1,9 @@
 
 'use server';
 
-import db from '@/lib/db';
+import db from '../lib/db';
 import { getExchangeRateApiKey } from './api-key-service';
-import type { Transaction as AppTransaction } from '@/lib/data';
+import type { Transaction as AppTransaction } from '../lib/data';
 import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -39,6 +39,7 @@ export async function addTransaction(userId: string, newTransaction: Omit<AppTra
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(transactionId, userId, transactionData.date, transactionData.amount, transactionData.type, transactionData.category, transactionData.wallet, transactionData.description, transactionData.currency, JSON.stringify(attachmentUrls), transactionData.eventId, transactionData.excludeFromReport ? 1 : 0);
+    window.dispatchEvent(new Event('transactionsUpdated'));
 }
 
 export async function addTransactions(userId: string, newTransactions: Omit<AppTransaction, 'id' | 'userId' | 'attachments'>[]): Promise<void> {
@@ -52,6 +53,7 @@ export async function addTransactions(userId: string, newTransactions: Omit<AppT
         }
     });
     insertMany(newTransactions);
+    window.dispatchEvent(new Event('transactionsUpdated'));
 }
 
 export async function getAllTransactions(userId: string): Promise<AppTransaction[]> {
@@ -92,16 +94,19 @@ export async function updateTransaction(userId: string, updatedTransaction: AppT
         WHERE id = ? AND userId = ?
     `);
     stmt.run(transactionData.date, transactionData.amount, transactionData.type, transactionData.category, transactionData.wallet, transactionData.description, transactionData.currency, JSON.stringify(finalAttachments), transactionData.eventId, transactionData.excludeFromReport ? 1 : 0, id, userId);
+    window.dispatchEvent(new Event('transactionsUpdated'));
 }
 
 export async function deleteTransaction(userId: string, transactionId: string): Promise<void> {
     const stmt = db.prepare('DELETE FROM transactions WHERE id = ? AND userId = ?');
     stmt.run(transactionId, userId);
+    window.dispatchEvent(new Event('transactionsUpdated'));
 }
 
 export async function deleteAllTransactions(userId: string): Promise<void> {
     const stmt = db.prepare('DELETE FROM transactions WHERE userId = ?');
     stmt.run(userId);
+    window.dispatchEvent(new Event('transactionsUpdated'));
 }
 
 async function getExchangeRate(userId: string, fromCurrency: string, toCurrency: string): Promise<number> {
@@ -161,4 +166,5 @@ export async function convertAllTransactions(userId: string, fromCurrency: strin
     });
 
     updateTransaction(allTransactions);
+    window.dispatchEvent(new Event('transactionsUpdated'));
 }
