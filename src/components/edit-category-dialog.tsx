@@ -27,8 +27,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { emojiIcons, type Category } from '@/lib/data';
-import { updateCategory, getCategoryDepth } from '@/services/category-service';
+import { emojiIcons, type Category, getCategoryDepth } from '@/lib/data';
+import { updateCategory } from '@/services/category-service';
 import { useEffect, useState, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast"
 import { cn } from '@/lib/utils';
@@ -96,7 +96,7 @@ export function EditCategoryDialog({
   
   const parentCategoryOptions = useMemo(() => {
     if (!category) return [];
-    return allCategories.filter(async c => {
+    return allCategories.filter(c => {
       // Cannot be its own parent
       if (c.id === category.id) return false;
       // Cannot be a child of itself
@@ -106,7 +106,7 @@ export function EditCategoryDialog({
         current = allCategories.find(p => p.id === current!.parentId);
       }
       // Parent cannot be at level 3 already
-      if (await getCategoryDepth(c.id, allCategories) >= 2) return false;
+      if (getCategoryDepth(c.id, allCategories) >= 2) return false;
       return true;
     });
   }, [category, allCategories]);

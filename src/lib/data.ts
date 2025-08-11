@@ -13,7 +13,6 @@ import {
   Landmark,
   PiggyBank,
 } from 'lucide-react';
-import type { Transaction as FirestoreTransaction } from '@/services/transaction-service';
 
 export type User = {
   name: string;
@@ -184,4 +183,14 @@ export const getWalletBalance = (wallet: Wallet, allTransactions: Transaction[])
     return initialBalance + transactionNet;
 }
 
-    
+export function getCategoryDepth(categoryId: string | null, allCategories: Category[]): number {
+    if (!categoryId) return 0;
+    let depth = 0;
+    let current = allCategories.find(c => c.id === categoryId);
+    while (current?.parentId) {
+        depth++;
+        current = allCategories.find(c => c.id === current!.parentId);
+        if (depth > 10) break; // Safety break for circular dependencies
+    }
+    return depth;
+}

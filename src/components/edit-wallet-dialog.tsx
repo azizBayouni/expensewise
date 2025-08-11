@@ -26,14 +26,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { emojiIcons, type Wallet, currencies, type Category } from '@/lib/data';
+import { emojiIcons, type Wallet, currencies, type Category, getCategoryDepth } from '@/lib/data';
 import { updateWallet } from '@/services/wallet-service';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { MultiSelect, type MultiSelectOption } from './ui/multi-select';
 import { ScrollArea } from './ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { getCategoryDepth, getAllCategories } from '@/services/category-service';
+import { getAllCategories } from '@/services/category-service';
 import { useAuth } from './auth-provider';
 
 interface EditWalletDialogProps {

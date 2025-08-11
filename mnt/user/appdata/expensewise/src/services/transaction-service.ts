@@ -1,7 +1,7 @@
 
 'use server';
 
-import db from '../lib/db';
+import db from './db';
 import { getExchangeRateApiKey } from './api-key-service';
 import type { Transaction as AppTransaction } from '../lib/data';
 import { randomUUID } from 'crypto';

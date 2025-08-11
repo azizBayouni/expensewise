@@ -30,7 +30,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CalendarIcon, Paperclip, X, Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { currencies, type Category, type Wallet, type Event } from '@/lib/data';
+import { currencies, type Category, type Wallet, type Event, getCategoryDepth } from '@/lib/data';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { addTransaction, convertAmount as convertAmountService } from '@/services/transaction-service';
 import { useToast } from "@/hooks/use-toast"
@@ -40,7 +40,7 @@ import { getTravelMode } from '@/services/travel-mode-service';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { getDefaultWallet } from '@/services/wallet-service';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getCategoryDepth, getAllCategories } from '@/services/category-service';
+import { getAllCategories } from '@/services/category-service';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { getExchangeRateApiKey } from '@/services/api-key-service';
 import { useAuth } from './auth-provider';
@@ -50,13 +50,11 @@ import { getAllEvents } from '@/services/event-service';
 interface NewTransactionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onTransactionAdded: () => void;
 }
 
 export function NewTransactionDialog({
   isOpen,
   onOpenChange,
-  onTransactionAdded
 }: NewTransactionDialogProps) {
   const { user } = useAuth();
   const [type, setType] = useState<'income' | 'expense'>('expense');
@@ -85,11 +83,12 @@ export function NewTransactionDialog({
     from: string,
     to: string
   ) => {
+    if (!user) return;
     if (!amountToConvert || !to || from === to) {
         setAmount(amountToConvert);
         return;
     }
-    const apiKey = getExchangeRateApiKey();
+    const apiKey = await getExchangeRateApiKey(user.uid);
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
@@ -101,7 +100,7 @@ export function NewTransactionDialog({
     }
     setIsConverting(true);
     try {
-      const converted = await convertAmountService(amountToConvert, from, to);
+      const converted = await convertAmountService(user.uid, amountToConvert, from, to);
       setAmount(converted);
        if (from !== to) {
         toast({
@@ -120,7 +119,7 @@ export function NewTransactionDialog({
     } finally {
       setIsConverting(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
 
   const resetForm = useCallback(async () => {
@@ -223,7 +222,7 @@ export function NewTransactionDialog({
       description: 'Your new transaction has been successfully recorded.',
     });
 
-    onTransactionAdded();
+    window.dispatchEvent(new Event('transactionsUpdated'));
     onOpenChange(false);
   };
 
@@ -266,95 +265,43 @@ export function NewTransactionDialog({
     return availableCategories;
   }, [wallet, allCategories]);
 
-  const renderCategoryOptions = (isCommand: boolean) => {
-    const topLevelCategories = selectableCategories.filter(c => c.parentId === null);
-
-    const getOptionsForParent = (parentId: string | null, level: number): JSX.Element[] => {
-        return selectableCategories
-            .filter(c => c.parentId === parentId)
-            .flatMap(c => {
-                const isSelectable = getCategoryDepth(c.id, selectableCategories) > 0;
-
-                if(isCommand) {
-                    const item = (
-                        <CommandItem
-                            key={c.id}
-                            value={c.name}
-                            disabled={!isSelectable}
-                            onSelect={(currentValue) => {
-                                setCategory(currentValue === category ? "" : currentValue)
-                                setIsCategoryPopoverOpen(false)
-                            }}
-                            className={cn(!isSelectable ? 'font-normal' : 'font-semibold text-muted-foreground', `pl-${4 + level * 4}`)}
-                        >
-                            <Check
-                                className={cn(
-                                    "mr-2 h-4 w-4",
-                                    category.toLowerCase() === c.name.toLowerCase() ? "opacity-100" : "opacity-0"
-                                )}
-                            />
-                            {c.name}
-                        </CommandItem>
-                    );
-                    const children = getOptionsForParent(c.id, level + 1);
-                    return [item, ...children];
-                } else {
-                     const item = (
-                        <SelectItem
-                            key={c.id}
-                            value={c.name}
-                            disabled={!isSelectable}
-                            className={cn(!isSelectable ? 'font-normal' : 'font-semibold text-muted-foreground', `pl-${4 + level * 4}`)}
-                        >
-                            {c.name}
-                        </SelectItem>
-                    );
-                    const children = getOptionsForParent(c.id, level + 1);
-                    return [item, ...children];
-                }
-            });
-    };
-
-    return topLevelCategories.flatMap(c => {
-       const isSelectable = getCategoryDepth(c.id, selectableCategories) > 0;
-       if (isCommand) {
-            const item = (
-                <CommandItem
-                        key={c.id}
-                        value={c.name}
-                        disabled={!isSelectable}
-                        onSelect={(currentValue) => {
-                            setCategory(currentValue === category ? "" : currentValue)
-                            setIsCategoryPopoverOpen(false)
-                        }}
-                        className="font-bold"
-                    >
-                    <Check
-                        className={cn(
-                            "mr-2 h-4 w-4",
-                            category.toLowerCase() === c.name.toLowerCase() ? "opacity-100" : "opacity-0"
-                        )}
-                    />
-                    {c.name}
-                </CommandItem>
-            );
-            const children = getOptionsForParent(c.id, 1);
-            return [item, ...children];
-       } else {
-            const item = (
-            <SelectItem
-                    key={c.id}
-                    value={c.name}
-                    disabled={!isSelectable}
-                    className="font-bold"
-                >
-                    {c.name}
-                </SelectItem>
-            );
-            const children = getOptionsForParent(c.id, 1);
-            return [item, ...children];
-       }
+  const renderCategoryOptions = () => {
+    const categoriesWithDepth = selectableCategories.map(c => ({...c, depth: getCategoryDepth(c.id, selectableCategories)}));
+    const sortedCategories = categoriesWithDepth.sort((a,b) => {
+        if(a.depth < b.depth) return -1;
+        if(a.depth > b.depth) return 1;
+        return a.name.localeCompare(b.name);
     });
+
+    const options: JSX.Element[] = [];
+    const buildHierarchy = (parentId: string | null = null, level: number = 0) => {
+      const children = sortedCategories.filter(c => c.parentId === parentId);
+      children.forEach(c => {
+        options.push(
+           <CommandItem
+                key={c.id}
+                value={c.name}
+                onSelect={(currentValue) => {
+                    setCategory(currentValue === category ? "" : currentValue)
+                    setIsCategoryPopoverOpen(false)
+                }}
+                style={{ paddingLeft: `${1 + level * 1.5}rem` }}
+                className={cn(c.depth === 0 && 'font-bold')}
+            >
+                <Check
+                    className={cn(
+                        "mr-2 h-4 w-4",
+                        category.toLowerCase() === c.name.toLowerCase() ? "opacity-100" : "opacity-0"
+                    )}
+                />
+                {c.name}
+            </CommandItem>
+        );
+        buildHierarchy(c.id, level + 1);
+      });
+    };
+    buildHierarchy();
+    return options;
   };
   
   return (
@@ -449,7 +396,7 @@ export function NewTransactionDialog({
                          <CommandList>
                             <CommandEmpty>No category found.</CommandEmpty>
                             <CommandGroup>
-                                {renderCategoryOptions(true)}
+                                {renderCategoryOptions()}
                             </CommandGroup>
                         </CommandList>
                         </Command>
@@ -539,5 +486,3 @@ export function NewTransactionDialog({
     </Dialog>
   );
 }
-
-    

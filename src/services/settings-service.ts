@@ -1,7 +1,7 @@
 
 'use server';
 
-import db from '../lib/db';
+import db from './db';
 
 export async function getDefaultCurrency(userId: string): Promise<string> {
   try {
@@ -23,7 +23,9 @@ export async function setDefaultCurrency(userId: string, currency: string): Prom
         DO UPDATE SET defaultCurrency = excluded.defaultCurrency;
     `);
     stmt.run(userId, currency);
-    window.dispatchEvent(new Event('storage'));
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('storage'));
+    }
   } catch (error) {
     console.error("Error setting default currency:", error);
   }

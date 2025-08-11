@@ -27,8 +27,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { emojiIcons, type Category, type EmojiIcon } from '@/lib/data';
-import { addCategory, getCategoryDepth } from '@/services/category-service';
+import { emojiIcons, type Category, getCategoryDepth } from '@/lib/data';
+import { addCategory } from '@/services/category-service';
 import { useState, useMemo, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast"
 import { cn } from '@/lib/utils';
@@ -50,7 +50,7 @@ export function AddCategoryDialog({
   const [name, setName] = useState('');
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [parentId, setParentId] = useState<string | null>(null);
-  const [icon, setIcon] = useState<string>('🤔');
+  const [icon, setIcon] = useState('🤔');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState('');
   const { toast } = useToast();
@@ -90,11 +90,11 @@ export function AddCategoryDialog({
     }
   };
   
-  const parentCategoryOptions = useMemo(async () => {
-    const categoriesWithDepth = await Promise.all(allCategories.map(async c => ({
+  const parentCategoryOptions = useMemo(() => {
+    const categoriesWithDepth = allCategories.map(c => ({
         ...c,
-        depth: await getCategoryDepth(c.id, allCategories)
-    })));
+        depth: getCategoryDepth(c.id, allCategories)
+    }));
     return categoriesWithDepth.filter(c => c.depth < 2);
   }, [allCategories]);
 

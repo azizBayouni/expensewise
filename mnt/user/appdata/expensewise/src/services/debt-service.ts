@@ -1,7 +1,7 @@
 
 'use server';
 
-import db from '../lib/db';
+import db from './db';
 import { format } from 'date-fns';
 import type { Debt, Payment } from '../lib/data';
 import { convertAmount } from './transaction-service';

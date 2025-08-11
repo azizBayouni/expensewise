@@ -1,7 +1,7 @@
 
 'use server';
 
-import db from '../lib/db';
+import db from './db';
 import type { Category } from '../lib/data';
 import { randomUUID } from 'crypto';
 
@@ -11,7 +11,7 @@ export async function getAllCategories(userId: string): Promise<Category[]> {
     return categories;
 }
 
-export function getCategoryDepth(categoryId: string | null, allCategories: Category[]): number {
+export async function getCategoryDepth(categoryId: string | null, allCategories: Category[]): Promise<number> {
     if (!categoryId) return 0;
     let depth = 0;
     let current = allCategories.find(c => c.id === categoryId);
@@ -35,7 +35,7 @@ export async function updateCategory(userId: string, updatedCategory: Category):
 export async function addCategory(userId: string, newCategoryData: Omit<Category, 'id' | 'userId'>): Promise<void> {
     const allCategories = await getAllCategories(userId);
     if (newCategoryData.parentId) {
-        const parentDepth = getCategoryDepth(newCategoryData.parentId, allCategories);
+        const parentDepth = await getCategoryDepth(newCategoryData.parentId, allCategories);
         if (parentDepth >= 2) {
             throw new Error("Cannot add a category beyond 3 levels deep.");
         }

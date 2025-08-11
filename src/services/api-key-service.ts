@@ -1,7 +1,7 @@
 
 'use server';
 
-import db from '../lib/db';
+import db from './db';
 
 export async function getExchangeRateApiKey(userId: string): Promise<string | null> {
   if (!userId) return null;

@@ -1,7 +1,7 @@
 
 'use server';
 
-import db from '../lib/db';
+import db from './db';
 import type { Wallet } from '../lib/data';
 import { convertAmount } from './transaction-service';
 import { randomUUID } from 'crypto';
