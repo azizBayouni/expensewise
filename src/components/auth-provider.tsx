@@ -2,13 +2,15 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged } from '@/services/auth-service';
-import type { User } from 'firebase/auth';
+import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { usePathname, useRouter } from 'next/navigation';
+import { Skeleton } from './ui/skeleton';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,18 +18,42 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
+      
+      const isAuthPage = pathname === '/login' || pathname === '/signup';
+
+      if (!user && !isAuthPage) {
+        router.push('/login');
+      }
+      if (user && isAuthPage) {
+        router.push('/');
+      }
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, []);
+  }, [pathname, router]);
 
-  const value = { user, loading };
+  const logout = async () => {
+    await signOut(auth);
+    router.push('/login');
+  };
+
+  const value = { user, loading, logout };
+  
+  const isAuthPage = pathname === '/login' || pathname === '/signup';
+  if (loading && !isAuthPage) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Skeleton className="h-12 w-12 rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={value}>

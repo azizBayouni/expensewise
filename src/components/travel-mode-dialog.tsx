@@ -25,11 +25,13 @@ import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { currencies, events } from '@/lib/data';
+import { currencies, type Event } from '@/lib/data';
 import type { DateRange } from "react-day-picker"
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { setTravelMode, disconnectTravelMode, getTravelMode } from '@/services/travel-mode-service';
+import { useAuth } from './auth-provider';
+import { getAllEvents } from '@/services/event-service';
 
 interface TravelModeDialogProps {
   isOpen: boolean;
@@ -40,10 +42,18 @@ export function TravelModeDialog({
   isOpen,
   onOpenChange,
 }: TravelModeDialogProps) {
+    const { user } = useAuth();
+    const [events, setEvents] = useState<Event[]>([]);
     const [date, setDate] = useState<DateRange | undefined>()
     const [selectedEvent, setSelectedEvent] = useState<string>('');
     const [selectedCurrency, setSelectedCurrency] = useState<string>('');
     const { toast } = useToast();
+    
+    useEffect(() => {
+        if (isOpen && user) {
+            getAllEvents(user.uid).then(setEvents);
+        }
+    }, [isOpen, user]);
 
     const handleConnect = () => {
         if (!selectedEvent || !selectedCurrency) {

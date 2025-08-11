@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -6,6 +7,7 @@ import { AppHeader } from '@/components/app-header';
 import { MainNav } from '@/components/main-nav';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from '@/components/theme-provider';
+import { AuthProvider } from '@/components/auth-provider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -23,6 +25,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-body antialiased`}>
         <ThemeProvider>
+          <AuthProvider>
             <SidebarProvider>
               <Sidebar>
                 <MainNav />
@@ -32,6 +35,7 @@ export default function RootLayout({
                 {children}
               </SidebarInset>
             </SidebarProvider>
+          </AuthProvider>
           <Toaster />
         </ThemeProvider>
       </body>

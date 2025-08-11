@@ -1,30 +1,43 @@
 
-import { events, type Event } from '@/lib/data';
+import { firestore } from '@/lib/firebase';
+import {
+  collection,
+  addDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
+} from 'firebase/firestore';
+import type { Event } from '@/lib/data';
 
-export function addEvent(newEventData: Omit<Event, 'id' | 'status'>): void {
-    const newId = 'e' + (Math.max(0, ...events.map(e => parseInt(e.id.substring(1)))) + 1).toString();
-    const newEvent: Event = {
+const eventsCollection = (userId: string) => collection(firestore, 'users', userId, 'events');
+
+export async function addEvent(userId: string, newEventData: Omit<Event, 'id' | 'status' | 'userId'>): Promise<void> {
+    const newEvent: Omit<Event, 'id'> = {
         ...newEventData,
-        id: newId,
+        userId,
         status: 'active',
     };
-    events.push(newEvent);
+    await addDoc(eventsCollection(userId), newEvent);
+    window.dispatchEvent(new Event('eventsUpdated'));
 }
 
-export function updateEvent(updatedEvent: Event): void {
-  const index = events.findIndex((e) => e.id === updatedEvent.id);
-  if (index !== -1) {
-    events[index] = updatedEvent;
-  } else {
-    console.error(`Event with id ${updatedEvent.id} not found.`);
-  }
+export async function getAllEvents(userId: string): Promise<Event[]> {
+    const q = query(eventsCollection(userId));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
 }
 
-export function deleteEvent(eventId: string): void {
-    const index = events.findIndex((e) => e.id === eventId);
-    if (index !== -1) {
-        events.splice(index, 1);
-    } else {
-        console.error(`Event with id ${eventId} not found.`);
-    }
+export async function updateEvent(userId: string, updatedEvent: Event): Promise<void> {
+  const { id, ...eventData } = updatedEvent;
+  const docRef = doc(firestore, 'users', userId, 'events', id);
+  await updateDoc(docRef, eventData);
+  window.dispatchEvent(new Event('eventsUpdated'));
+}
+
+export async function deleteEvent(userId: string, eventId: string): Promise<void> {
+    const docRef = doc(firestore, 'users', userId, 'events', eventId);
+    await deleteDoc(docRef);
+    window.dispatchEvent(new Event('eventsUpdated'));
 }

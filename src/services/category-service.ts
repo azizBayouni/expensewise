@@ -1,57 +1,89 @@
 
-import { categories as allCategories, transactions, type Category } from '@/lib/data';
+import { firestore } from '@/lib/firebase';
+import {
+  collection,
+  doc,
+  addDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  writeBatch,
+  getDoc
+} from 'firebase/firestore';
+import { getAllTransactions } from './transaction-service';
+import type { Category } from '@/lib/data';
 
-export function getCategoryDepth(categoryId: string | null, categories: Category[] = allCategories): number {
+const categoriesCollection = (userId: string) => collection(firestore, 'users', userId, 'categories');
+
+export async function getAllCategories(userId: string): Promise<Category[]> {
+    const q = query(categoriesCollection(userId));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+}
+
+export async function getCategoryDepth(categoryId: string | null, allCategories: Category[]): Promise<number> {
     if (!categoryId) return 0;
     let depth = 0;
-    let current = categories.find(c => c.id === categoryId);
+    let current = allCategories.find(c => c.id === categoryId);
     while (current?.parentId) {
         depth++;
-        current = categories.find(c => c.id === current!.parentId);
+        current = allCategories.find(c => c.id === current!.parentId);
         if (depth > 10) break; // Safety break for circular dependencies
     }
     return depth;
 }
 
+export async function updateCategory(userId: string, updatedCategory: Category): Promise<void> {
+    const { id, ...categoryData } = updatedCategory;
+    const docRef = doc(firestore, 'users', userId, 'categories', id);
+    
+    const oldDocSnap = await getDoc(docRef);
+    const oldName = oldDocSnap.data()?.name;
 
-export function updateCategory(updatedCategory: Category): void {
-  const index = allCategories.findIndex((c) => c.id === updatedCategory.id);
-  if (index !== -1) {
-    const oldName = allCategories[index].name;
-    allCategories[index] = updatedCategory;
+    await updateDoc(docRef, categoryData);
+    
     // Update transactions if category name changed
-    if (oldName !== updatedCategory.name) {
+    if (oldName && oldName !== updatedCategory.name) {
+        const transactions = await getAllTransactions(userId);
+        const batch = writeBatch(firestore);
         transactions.forEach(t => {
             if (t.category === oldName) {
-                t.category = updatedCategory.name;
+                const transactionRef = doc(firestore, 'users', userId, 'transactions', t.id);
+                batch.update(transactionRef, { category: updatedCategory.name });
             }
         });
+        await batch.commit();
     }
-  } else {
-    // In a real application, you might throw an error or handle this case differently
-    console.error(`Category with id ${updatedCategory.id} not found.`);
-  }
+    window.dispatchEvent(new Event('categoriesUpdated'));
 }
 
-export function addCategory(newCategory: Omit<Category, 'id'>): void {
-    if (newCategory.parentId) {
-        const parentDepth = getCategoryDepth(newCategory.parentId, allCategories);
+export async function addCategory(userId: string, newCategoryData: Omit<Category, 'id' | 'userId'>): Promise<void> {
+    const allCategories = await getAllCategories(userId);
+    if (newCategoryData.parentId) {
+        const parentDepth = await getCategoryDepth(newCategoryData.parentId, allCategories);
         if (parentDepth >= 2) {
             throw new Error("Cannot add a category beyond 3 levels deep.");
         }
     }
+    
+    const newCategory: Omit<Category, 'id'> = {
+        ...newCategoryData,
+        userId
+    };
 
-    const newId = (Math.max(...allCategories.map(c => parseInt(c.id))) + 1).toString();
-    allCategories.push({ ...newCategory, id: newId });
+    await addDoc(categoriesCollection(userId), newCategory);
+    window.dispatchEvent(new Event('categoriesUpdated'));
 }
 
-export function deleteCategory(categoryId: string): void {
+export async function deleteCategory(userId: string, categoryId: string): Promise<void> {
+    const allCategories = await getAllCategories(userId);
     const categoryToDelete = allCategories.find(c => c.id === categoryId);
     if (!categoryToDelete) {
         throw new Error(`Category with id ${categoryId} not found.`);
     }
     
-    // Recursively find all child categories
     const allIdsToDelete: string[] = [categoryId];
     const findChildren = (parentId: string) => {
         const children = allCategories.filter(c => c.parentId === parentId);
@@ -62,30 +94,36 @@ export function deleteCategory(categoryId: string): void {
     };
     findChildren(categoryId);
     
-    // Find names of all categories being deleted
     const namesToDelete = allCategories.filter(c => allIdsToDelete.includes(c.id)).map(c => c.name);
 
-    // Prevent deletion if transactions are associated with it
+    const transactions = await getAllTransactions(userId);
     const hasTransactions = transactions.some(t => namesToDelete.includes(t.category));
     if (hasTransactions) {
         throw new Error("Cannot delete a category that has associated transactions. Please re-assign them first.");
     }
 
-    // Filter out the category and its sub-categories
-    const updatedCategories = allCategories.filter(c => !allIdsToDelete.includes(c.id));
+    const batch = writeBatch(firestore);
+    allIdsToDelete.forEach(id => {
+        const docRef = doc(firestore, 'users', userId, 'categories', id);
+        batch.delete(docRef);
+    });
+    await batch.commit();
     
-    // Replace the original array
-    allCategories.length = 0;
-    allCategories.push(...updatedCategories);
+    window.dispatchEvent(new Event('categoriesUpdated'));
 }
 
-export function deleteAllCategories(): void {
-    const hasTransactions = transactions.length > 0;
-    if (hasTransactions) {
+export async function deleteAllCategories(userId: string): Promise<void> {
+    const transactions = await getAllTransactions(userId);
+    if (transactions.length > 0) {
         throw new Error("Cannot delete categories because transactions exist. Please delete all transactions first.");
     }
 
-    // Clear the categories array
-    allCategories.length = 0;
-    window.dispatchEvent(new Event('storage')); // Notify other parts of the app
+    const allCategories = await getAllCategories(userId);
+    const batch = writeBatch(firestore);
+    allCategories.forEach(c => {
+        const docRef = doc(firestore, 'users', userId, 'categories', c.id);
+        batch.delete(docRef);
+    });
+    await batch.commit();
+    window.dispatchEvent(new Event('categoriesUpdated'));
 }
