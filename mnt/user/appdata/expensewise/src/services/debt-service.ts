@@ -1,54 +1,57 @@
 
-import { firestore } from '@/lib/firebase';
-import {
-  collection,
-  doc,
-  addDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  query,
-  arrayUnion,
-  writeBatch
-} from 'firebase/firestore';
+'use server';
+
+import db from '@/lib/db';
 import { format } from 'date-fns';
 import type { Debt, Payment } from '@/lib/data';
 import { convertAmount } from './transaction-service';
-
-const debtsCollection = (userId: string) => collection(firestore, 'users', userId, 'debts');
+import { randomUUID } from 'crypto';
 
 export async function addDebt(userId: string, newDebtData: Omit<Debt, 'id' | 'status' | 'payments' | 'userId'>): Promise<void> {
-    const newDebt: Omit<Debt, 'id'> = {
+    const newDebt: Debt = {
         ...newDebtData,
+        id: randomUUID(),
         userId,
         status: 'unpaid',
         payments: [],
     };
-    await addDoc(debtsCollection(userId), newDebt);
-    window.dispatchEvent(new Event('debtsUpdated'));
+    
+    const stmt = db.prepare(`
+        INSERT INTO debts (id, userId, type, person, amount, currency, dueDate, status, note, payments) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(newDebt.id, userId, newDebt.type, newDebt.person, newDebt.amount, newDebt.currency, newDebt.dueDate, newDebt.status, newDebt.note, JSON.stringify(newDebt.payments));
 }
 
 export async function getAllDebts(userId: string): Promise<Debt[]> {
-    const q = query(debtsCollection(userId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
+    const stmt = db.prepare('SELECT * FROM debts WHERE userId = ?');
+    const results = stmt.all(userId) as any[];
+    return results.map(row => ({
+        ...row,
+        payments: JSON.parse(row.payments || '[]')
+    }));
 }
 
 export async function updateDebt(userId: string, updatedDebt: Debt): Promise<void> {
   const { id, ...debtData } = updatedDebt;
-  const docRef = doc(firestore, 'users', userId, 'debts', id);
-  await updateDoc(docRef, debtData);
-  window.dispatchEvent(new Event('debtsUpdated'));
+  const stmt = db.prepare(`
+    UPDATE debts 
+    SET type = ?, person = ?, amount = ?, currency = ?, dueDate = ?, status = ?, note = ?, payments = ?
+    WHERE id = ? AND userId = ?
+  `);
+  stmt.run(debtData.type, debtData.person, debtData.amount, debtData.currency, debtData.dueDate, debtData.status, debtData.note, JSON.stringify(debtData.payments), id, userId);
 }
 
 export async function deleteDebt(userId: string, debtId: string): Promise<void> {
-    const docRef = doc(firestore, 'users', userId, 'debts', debtId);
-    await deleteDoc(docRef);
-    window.dispatchEvent(new Event('debtsUpdated'));
+    const stmt = db.prepare('DELETE FROM debts WHERE id = ? AND userId = ?');
+    stmt.run(debtId, userId);
 }
 
-export async function addPaymentToDebt(userId: string, debt: Debt, paymentAmount: number): Promise<void> {
-    const docRef = doc(firestore, 'users', userId, 'debts', debt.id);
+export async function addPaymentToDebt(userId: string, debtId: string, paymentAmount: number): Promise<void> {
+    const debt = db.prepare('SELECT * FROM debts WHERE id = ?').get(debtId) as any;
+    if (!debt) return;
+
+    debt.payments = JSON.parse(debt.payments || '[]');
     
     const newPayment: Payment = {
         id: 'p' + (Math.random() * 1e9).toString(36),
@@ -66,36 +69,31 @@ export async function addPaymentToDebt(userId: string, debt: Debt, paymentAmount
         newStatus = 'partial';
     }
 
-    await updateDoc(docRef, {
-        payments: arrayUnion(newPayment),
-        status: newStatus,
-    });
-    
-    window.dispatchEvent(new Event('debtsUpdated'));
+    const stmt = db.prepare('UPDATE debts SET payments = ?, status = ? WHERE id = ?');
+    stmt.run(JSON.stringify(updatedPayments), newStatus, debtId);
 }
 
 export async function convertAllDebts(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
     const allDebts = await getAllDebts(userId);
-    const batch = writeBatch(firestore);
+    const updateStmt = db.prepare('UPDATE debts SET amount = ?, currency = ?, payments = ? WHERE id = ?');
 
-    for (const debt of allDebts) {
-        if (debt.currency === fromCurrency) {
-            const docRef = doc(firestore, 'users', userId, 'debts', debt.id);
-            const convertedAmount = await convertAmount(debt.amount, fromCurrency, toCurrency);
-            
-            const convertedPayments = await Promise.all(
-              debt.payments.map(async (payment) => ({
-                ...payment,
-                amount: await convertAmount(payment.amount, fromCurrency, toCurrency),
-              }))
-            );
+    const updateTransaction = db.transaction((debts) => {
+        for (const debt of debts) {
+            if (debt.currency === fromCurrency) {
+                const convertedAmount = convertAmount(userId, debt.amount, fromCurrency, toCurrency);
+                
+                const convertedPayments = debt.payments.map(payment => ({
+                    ...payment,
+                    amount: convertAmount(userId, payment.amount, fromCurrency, toCurrency),
+                }));
 
-            batch.update(docRef, {
-                amount: convertedAmount,
-                currency: toCurrency,
-                payments: convertedPayments
-            });
+                Promise.all([convertedAmount, Promise.all(convertedPayments.map(p=>p.amount))]).then(([newAmount, newPaymentAmounts]) => {
+                     const newPayments = convertedPayments.map((p, i) => ({...p, amount: newPaymentAmounts[i]}))
+                     updateStmt.run(newAmount, toCurrency, JSON.stringify(newPayments), debt.id);
+                });
+            }
         }
-    }
-    await batch.commit();
+    });
+
+    updateTransaction(allDebts);
 }

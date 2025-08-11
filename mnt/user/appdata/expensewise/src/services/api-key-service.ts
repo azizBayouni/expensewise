@@ -1,28 +1,31 @@
 
-'use client';
+'use server';
 
-import { firestore } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-
-const settingsDoc = (userId: string) => doc(firestore, 'users', userId, 'settings', 'main');
+import db from '@/lib/db';
+import { Stmt } from 'better-sqlite3';
 
 export async function getExchangeRateApiKey(userId: string): Promise<string | null> {
   if (!userId) return null;
   try {
-    const docSnap = await getDoc(settingsDoc(userId));
-    if (docSnap.exists() && docSnap.data().exchangeRateApiKey) {
-        return docSnap.data().exchangeRateApiKey;
-    }
+    const stmt = db.prepare('SELECT exchangeRateApiKey FROM settings WHERE userId = ?');
+    const result = stmt.get(userId) as { exchangeRateApiKey: string } | undefined;
+    return result?.exchangeRateApiKey || null;
   } catch (error) {
     console.error("Error fetching API key:", error);
+    return null;
   }
-  return null;
 }
 
 export async function setExchangeRateApiKey(userId: string, apiKey: string): Promise<void> {
   if (!userId) return;
   try {
-    await setDoc(settingsDoc(userId), { exchangeRateApiKey: apiKey }, { merge: true });
+    const stmt = db.prepare(`
+        INSERT INTO settings (userId, exchangeRateApiKey) 
+        VALUES (?, ?)
+        ON CONFLICT(userId) 
+        DO UPDATE SET exchangeRateApiKey = excluded.exchangeRateApiKey;
+    `);
+    stmt.run(userId, apiKey);
   } catch (error) {
     console.error("Error setting API key:", error);
   }
