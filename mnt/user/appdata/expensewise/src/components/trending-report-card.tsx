@@ -143,7 +143,8 @@ export function TrendingReportCard() {
         { title: "No trends available for this month.", value: "", icon: <HelpCircle className="h-8 w-8 text-muted-foreground" /> }
     ];
 
-  }, [monthlyTransactions, defaultCurrency, formatCurrency]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthlyTransactions, defaultCurrency]);
 
   if (isLoading) {
       return (
