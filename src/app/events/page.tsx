@@ -1,12 +1,11 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,18 +28,47 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { events, type Event } from '@/lib/data';
+import { type Event } from '@/lib/data';
 import { Badge } from '@/components/ui/badge';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { EditEventDialog } from '@/components/edit-event-dialog';
-import { deleteEvent } from '@/services/event-service';
+import { deleteEvent, getAllEvents } from '@/services/event-service';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/auth-provider';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function EventsPage() {
+  const { user } = useAuth();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const { toast } = useToast();
+
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+        const userEvents = await getAllEvents(user.uid);
+        setEvents(userEvents);
+    } catch(error) {
+        console.error("Error fetching events:", error);
+    } finally {
+        setIsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+        fetchData();
+    }
+    const handleDataChange = () => {
+        if (user) fetchData();
+    };
+    window.addEventListener('eventsUpdated', handleDataChange);
+    return () => window.removeEventListener('eventsUpdated', handleDataChange);
+  }, [user, fetchData]);
 
   const handleEditClick = (event: Event) => {
     setSelectedEvent(event);
@@ -48,13 +76,28 @@ export default function EventsPage() {
   };
 
   const handleDeleteClick = (eventId: string) => {
-    deleteEvent(eventId);
+    if (!user) return;
+    deleteEvent(user.uid, eventId);
     toast({
       title: "Event Deleted",
       description: "The event has been successfully deleted.",
       variant: "destructive"
     });
   };
+
+  if (isLoading) {
+    return (
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+            <div className="flex items-center justify-between">
+                <Skeleton className="h-10 w-64" />
+                <Skeleton className="h-10 w-36" />
+            </div>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+            </div>
+        </div>
+    )
+  }
 
   return (
     <>
