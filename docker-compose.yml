@@ -11,7 +11,7 @@ services:
       - firebase-emulators
 
   firebase-emulators:
-    image: firebase/emulators:latest
+    image: us-docker.pkg.dev/firebase-emulators/public/emulators:latest
     ports:
       - '4000:4000' # UI
       - '8080:8080' # Firestore
