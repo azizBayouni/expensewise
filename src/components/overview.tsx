@@ -8,9 +8,9 @@ import type { Transaction } from '@/lib/data';
 import { subMonths, format, startOfMonth, endOfMonth, parseISO, isWithinInterval, startOfYear, eachMonthOfInterval, endOfYear } from 'date-fns';
 import { getDefaultCurrency } from '@/services/settings-service';
 import { useRouter } from 'next/navigation';
-import { useAuth } from './auth-provider';
 import { getAllTransactions } from '@/services/transaction-service';
 import { Skeleton } from './ui/skeleton';
+import { useAuth } from './auth-provider';
 
 const chartConfig = {
   income: {
@@ -154,7 +154,7 @@ export function Overview({ timespan }: OverviewProps) {
               cursor={{fill: 'hsl(var(--muted))'}}
               content={<ChartTooltipContent indicator="dot" formatter={(value, name) => {
                  const formattedValue = new Intl.NumberFormat('en-US', { style: 'currency', currency: defaultCurrency }).format(value as number);
-                 const itemConfig = chartConfig[name as keyof typeof chartConfig];
+                 const itemConfig = chartConfig[name.toLowerCase() as keyof typeof chartConfig];
                  return (
                      <div className="flex items-center gap-2">
                          <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: itemConfig.color}}/>
@@ -170,7 +170,7 @@ export function Overview({ timespan }: OverviewProps) {
               return (
                   <div className="flex justify-center gap-4 mt-4">
                       {payload?.map((entry) => {
-                           const itemConfig = chartConfig[entry.value as keyof typeof chartConfig];
+                           const itemConfig = chartConfig[entry.value.toLowerCase() as keyof typeof chartConfig];
                            return (
                                <div key={entry.value} className="flex items-center gap-2 text-sm">
                                    <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: entry.color}}/>
