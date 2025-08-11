@@ -1,3 +1,4 @@
+
 services:
   app:
     build: .
@@ -11,7 +12,7 @@ services:
       - firebase-emulators
 
   firebase-emulators:
-    image: firebase/emulators:latest
+    image: google/cloud-sdk:emulators
     ports:
       - '4000:4000' # UI
       - '8080:8080' # Firestore
