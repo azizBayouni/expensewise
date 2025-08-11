@@ -30,7 +30,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CalendarIcon, Paperclip, X, Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { currencies, type Category, type Wallet, type Event } from '@/lib/data';
+import { currencies, type Category, type Wallet, type Event, getCategoryDepth } from '@/lib/data';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { addTransaction, convertAmount as convertAmountService } from '@/services/transaction-service';
 import { useToast } from "@/hooks/use-toast"
@@ -40,22 +40,25 @@ import { getTravelMode } from '@/services/travel-mode-service';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { getDefaultWallet } from '@/services/wallet-service';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getCategoryDepth, getAllCategories } from '@/services/category-service';
+import { getAllCategories } from '@/services/category-service';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { getExchangeRateApiKey } from '@/services/api-key-service';
+import { useAuth } from './auth-provider';
 import { getAllWallets } from '@/services/wallet-service';
 import { getAllEvents } from '@/services/event-service';
 
-const MOCK_USER_ID = 'dev-user';
 interface NewTransactionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onTransactionAdded: () => void;
 }
 
 export function NewTransactionDialog({
   isOpen,
   onOpenChange,
+  onTransactionAdded,
 }: NewTransactionDialogProps) {
+  const { user } = useAuth();
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState<number | ''>('');
   const [originalAmount, setOriginalAmount] = useState<number | ''>('');
@@ -82,11 +85,12 @@ export function NewTransactionDialog({
     from: string,
     to: string
   ) => {
+    if (!user) return;
     if (!amountToConvert || !to || from === to) {
         setAmount(amountToConvert);
         return;
     }
-    const apiKey = await getExchangeRateApiKey(MOCK_USER_ID);
+    const apiKey = await getExchangeRateApiKey(user.uid);
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
@@ -98,7 +102,7 @@ export function NewTransactionDialog({
     }
     setIsConverting(true);
     try {
-      const converted = await convertAmountService(MOCK_USER_ID, amountToConvert, from, to);
+      const converted = await convertAmountService(user.uid, amountToConvert, from, to);
       setAmount(converted);
        if (from !== to) {
         toast({
@@ -117,23 +121,24 @@ export function NewTransactionDialog({
     } finally {
       setIsConverting(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
 
   const resetForm = useCallback(async () => {
+    if (!user) return;
     const [cats, wals, evs, defCurrency, defWalletId] = await Promise.all([
-        getAllCategories(MOCK_USER_ID),
-        getAllWallets(MOCK_USER_ID),
-        getAllEvents(MOCK_USER_ID),
-        getDefaultCurrency(MOCK_USER_ID),
-        getDefaultWallet(MOCK_USER_ID),
+        getAllCategories(user.uid),
+        getAllWallets(user.uid),
+        getAllEvents(user.uid),
+        getDefaultCurrency(user.uid),
+        getDefaultWallet(user.uid),
     ]);
     setAllCategories(cats);
     setAllWallets(wals);
     setAllEvents(evs);
     setDefaultCurrency(defCurrency);
 
-    const travelMode = getTravelMode(MOCK_USER_ID);
+    const travelMode = getTravelMode();
     setIsTravelMode(travelMode.isActive);
     
     setType('expense');
@@ -156,7 +161,7 @@ export function NewTransactionDialog({
     } else {
       setTransactionCurrency(defCurrency);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (isOpen) {
@@ -185,6 +190,7 @@ export function NewTransactionDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     
     const finalAmount = amount || originalAmount;
 
@@ -197,8 +203,7 @@ export function NewTransactionDialog({
         return;
     }
 
-    const newTransaction: Omit<Transaction, 'id'> = {
-        userId: MOCK_USER_ID,
+    const newTransaction: Omit<Transaction, 'id' | 'userId'> = {
         amount: Number(finalAmount),
         type,
         description,
@@ -211,13 +216,14 @@ export function NewTransactionDialog({
         excludeFromReport: excludeFromReport,
     };
 
-    await addTransaction(MOCK_USER_ID, newTransaction, attachments);
+    await addTransaction(user.uid, newTransaction, attachments);
 
     toast({
       title: 'Transaction Saved',
       description: 'Your new transaction has been successfully recorded.',
     });
-
+    
+    onTransactionAdded();
     onOpenChange(false);
   };
 
@@ -481,5 +487,3 @@ export function NewTransactionDialog({
     </Dialog>
   );
 }
-
-    

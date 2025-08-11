@@ -41,7 +41,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CalendarIcon, Download, Paperclip, Trash2, X, Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
-import { currencies, type Category, type Wallet, type Event } from '@/lib/data';
+import { currencies, type Category, type Wallet, type Event, getCategoryDepth } from '@/lib/data';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { updateTransaction, deleteTransaction, convertAmount as convertAmountService } from '@/services/transaction-service';
 import { useToast } from "@/hooks/use-toast"
@@ -50,13 +50,12 @@ import { getDefaultCurrency } from '@/services/settings-service';
 import { getTravelMode } from '@/services/travel-mode-service';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getAllCategories, getCategoryDepth } from '@/services/category-service';
+import { getAllCategories } from '@/services/category-service';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { getExchangeRateApiKey } from '@/services/api-key-service';
+import { useAuth } from './auth-provider';
 import { getAllWallets } from '@/services/wallet-service';
 import { getAllEvents } from '@/services/event-service';
-
-const MOCK_USER_ID = 'dev-user';
 
 interface EditTransactionDialogProps {
   isOpen: boolean;
@@ -71,6 +70,7 @@ export function EditTransactionDialog({
   transaction,
   onTransactionUpdated
 }: EditTransactionDialogProps) {
+  const { user } = useAuth();
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState<number | ''>('');
   const [originalAmount, setOriginalAmount] = useState<number | ''>('');
@@ -95,13 +95,14 @@ export function EditTransactionDialog({
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setIsLoading(true);
     try {
         const [cats, wals, evs, defCurrency] = await Promise.all([
-            getAllCategories(MOCK_USER_ID),
-            getAllWallets(MOCK_USER_ID),
-            getAllEvents(MOCK_USER_ID),
-            getDefaultCurrency(MOCK_USER_ID)
+            getAllCategories(user.uid),
+            getAllWallets(user.uid),
+            getAllEvents(user.uid),
+            getDefaultCurrency(user.uid)
         ]);
         setAllCategories(cats);
         setAllWallets(wals);
@@ -113,18 +114,19 @@ export function EditTransactionDialog({
     } finally {
         setIsLoading(false);
     }
-  }, [toast]);
+  }, [user, toast]);
 
   const convertAmount = useCallback(async (
     amountToConvert: number,
     from: string,
     to: string
   ) => {
+    if (!user) return;
     if (!amountToConvert || !to || from === to) {
       setAmount(amountToConvert);
       return;
     }
-    const apiKey = await getExchangeRateApiKey(MOCK_USER_ID);
+    const apiKey = await getExchangeRateApiKey(user.uid);
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
@@ -136,7 +138,7 @@ export function EditTransactionDialog({
     }
     setIsConverting(true);
     try {
-      const converted = await convertAmountService(MOCK_USER_ID, amountToConvert, from, to);
+      const converted = await convertAmountService(user.uid, amountToConvert, from, to);
       setAmount(converted);
       if (from !== to) {
         toast({
@@ -155,11 +157,12 @@ export function EditTransactionDialog({
     } finally {
       setIsConverting(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   const resetAndInitialize = useCallback(async () => {
+    if (!user) return;
     await fetchData();
-    const travelMode = getTravelMode(MOCK_USER_ID);
+    const travelMode = getTravelMode();
     setIsTravelMode(travelMode.isActive);
 
     if (transaction) {
@@ -180,7 +183,7 @@ export function EditTransactionDialog({
       setOriginalAmount(transaction.amount);
     }
     setNewAttachments([]);
-  }, [transaction, fetchData]);
+  }, [transaction, user, fetchData]);
 
   useEffect(() => {
     if (isOpen) {
@@ -237,6 +240,7 @@ export function EditTransactionDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     
     const finalAmount = amount || originalAmount;
 
@@ -264,7 +268,7 @@ export function EditTransactionDialog({
           excludeFromReport: excludeFromReport,
       };
 
-      await updateTransaction(MOCK_USER_ID, updatedTransaction, newAttachments);
+      await updateTransaction(user.uid, updatedTransaction, newAttachments);
 
       toast({
         title: 'Transaction Updated',
@@ -277,8 +281,8 @@ export function EditTransactionDialog({
   };
 
   const handleDelete = async () => {
-    if (transaction) {
-        await deleteTransaction(MOCK_USER_ID, transaction.id);
+    if (transaction && user) {
+        await deleteTransaction(user.uid, transaction.id);
         toast({
             title: 'Transaction Deleted',
             description: 'The transaction has been successfully deleted.',
@@ -600,5 +604,3 @@ export function EditTransactionDialog({
     </Dialog>
   );
 }
-
-    

@@ -30,7 +30,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CalendarIcon, Paperclip, X, Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { currencies, type Category, type Wallet, type Event } from '@/lib/data';
+import { currencies, type Category, type Wallet, type Event, getCategoryDepth } from '@/lib/data';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { addTransaction, convertAmount as convertAmountService } from '@/services/transaction-service';
 import { useToast } from "@/hooks/use-toast"
@@ -40,7 +40,7 @@ import { getTravelMode } from '@/services/travel-mode-service';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { getDefaultWallet } from '@/services/wallet-service';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getCategoryDepth, getAllCategories } from '@/services/category-service';
+import { getAllCategories } from '@/services/category-service';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { getExchangeRateApiKey } from '@/services/api-key-service';
 import { useAuth } from '@/components/auth-provider';
@@ -50,11 +50,13 @@ import { getAllEvents } from '@/services/event-service';
 interface NewTransactionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onTransactionAdded: () => void;
 }
 
 export function NewTransactionDialog({
   isOpen,
   onOpenChange,
+  onTransactionAdded,
 }: NewTransactionDialogProps) {
   const { user } = useAuth();
   const [type, setType] = useState<'income' | 'expense'>('expense');
@@ -220,7 +222,8 @@ export function NewTransactionDialog({
       title: 'Transaction Saved',
       description: 'Your new transaction has been successfully recorded.',
     });
-
+    
+    onTransactionAdded();
     onOpenChange(false);
   };
 
@@ -264,7 +267,7 @@ export function NewTransactionDialog({
   }, [wallet, allCategories]);
 
   const renderCategoryOptions = () => {
-    const categoriesWithDepth = selectableCategories.map(c => ({...c, depth: getCategoryDepth(c.id, allCategories)}));
+    const categoriesWithDepth = selectableCategories.map(c => ({...c, depth: getCategoryDepth(c.id, selectableCategories)}));
     const sortedCategories = categoriesWithDepth.sort((a,b) => {
         if(a.depth < b.depth) return -1;
         if(a.depth > b.depth) return 1;

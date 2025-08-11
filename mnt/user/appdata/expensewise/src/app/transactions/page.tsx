@@ -40,9 +40,9 @@ import { getAllCategories } from '@/services/category-service';
 import { getAllWallets } from '@/services/wallet-service';
 import { getAllEvents } from '@/services/event-service';
 import type { Transaction, Category, Wallet, Event } from '@/lib/data';
+import { getCategoryDepth } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/components/auth-provider';
-import { getCategoryDepth } from '@/lib/data';
 
 export default function TransactionsPage() {
   const { user } = useAuth();
@@ -309,6 +309,7 @@ export default function TransactionsPage() {
        <NewTransactionDialog 
         isOpen={isAddDialogOpen} 
         onOpenChange={setIsAddDialogOpen}
+        onTransactionAdded={fetchData}
       />
       {selectedTransaction && (
         <EditTransactionDialog 
