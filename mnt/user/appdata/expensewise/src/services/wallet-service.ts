@@ -14,7 +14,7 @@ import {
   setDoc
 } from 'firebase/firestore';
 import type { Wallet } from '@/lib/data';
-import { getAllTransactions, convertAmount } from './transaction-service';
+import { convertAmount } from './transaction-service';
 
 const walletsCollection = (userId: string) => collection(firestore, 'users', userId, 'wallets');
 const settingsDoc = (userId: string) => doc(firestore, 'users', userId, 'settings', 'main');
@@ -50,7 +50,7 @@ export async function deleteWallet(userId: string, walletId: string): Promise<vo
 }
 
 export async function setDefaultWallet(userId: string, walletId: string): Promise<void> {
-    const settingsRef = doc(settingsDoc(userId));
+    const settingsRef = settingsDoc(userId);
     await setDoc(settingsRef, { defaultWalletId: walletId }, { merge: true });
     window.dispatchEvent(new Event('defaultWalletChanged'));
 }
@@ -64,7 +64,7 @@ export async function getDefaultWallet(userId: string): Promise<string | null> {
 }
 
 export async function clearDefaultWallet(userId: string): Promise<void> {
-    const settingsRef = doc(settingsDoc(userId));
+    const settingsRef = settingsDoc(userId);
     await setDoc(settingsRef, { defaultWalletId: null }, { merge: true });
     window.dispatchEvent(new Event('defaultWalletChanged'));
 }

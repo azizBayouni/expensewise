@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -31,7 +30,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CalendarIcon, Paperclip, X, Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { categories, wallets, currencies, events, type Category } from '@/lib/data';
+import { currencies, type Category, type Wallet, type Event } from '@/lib/data';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { addTransaction, convertAmount as convertAmountService } from '@/services/transaction-service';
 import { useToast } from "@/hooks/use-toast"
@@ -41,19 +40,25 @@ import { getTravelMode } from '@/services/travel-mode-service';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { getDefaultWallet } from '@/services/wallet-service';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getCategoryDepth } from '@/services/category-service';
+import { getCategoryDepth, getAllCategories } from '@/services/category-service';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { getExchangeRateApiKey } from '@/services/api-key-service';
+import { useAuth } from './auth-provider';
+import { getAllWallets } from '@/services/wallet-service';
+import { getAllEvents } from '@/services/event-service';
 
 interface NewTransactionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onTransactionAdded: () => void;
 }
 
 export function NewTransactionDialog({
   isOpen,
   onOpenChange,
+  onTransactionAdded
 }: NewTransactionDialogProps) {
+  const { user } = useAuth();
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState<number | ''>('');
   const [originalAmount, setOriginalAmount] = useState<number | ''>('');
@@ -71,16 +76,21 @@ export function NewTransactionDialog({
   const [isCategoryPopoverOpen, setIsCategoryPopoverOpen] = useState(false);
   const { toast } = useToast();
 
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [allWallets, setAllWallets] = useState<Wallet[]>([]);
+  const [allEvents, setAllEvents] = useState<Event[]>([]);
+
   const convertAmount = useCallback(async (
     amountToConvert: number,
     from: string,
     to: string
   ) => {
+    if (!user) return;
     if (!amountToConvert || !to || from === to) {
         setAmount(amountToConvert);
         return;
     }
-    const apiKey = getExchangeRateApiKey();
+    const apiKey = await getExchangeRateApiKey(user.uid);
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
@@ -92,7 +102,7 @@ export function NewTransactionDialog({
     }
     setIsConverting(true);
     try {
-      const converted = await convertAmountService(amountToConvert, from, to);
+      const converted = await convertAmountService(user.uid, amountToConvert, from, to);
       setAmount(converted);
        if (from !== to) {
         toast({
@@ -111,12 +121,22 @@ export function NewTransactionDialog({
     } finally {
       setIsConverting(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
 
-  const resetForm = useCallback(() => {
-    const currentDefaultCurrency = getDefaultCurrency();
-    setDefaultCurrency(currentDefaultCurrency);
+  const resetForm = useCallback(async () => {
+    if (!user) return;
+    const [cats, wals, evs, defCurrency, defWalletId] = await Promise.all([
+        getAllCategories(user.uid),
+        getAllWallets(user.uid),
+        getAllEvents(user.uid),
+        getDefaultCurrency(user.uid),
+        getDefaultWallet(user.uid),
+    ]);
+    setAllCategories(cats);
+    setAllWallets(wals);
+    setAllEvents(evs);
+    setDefaultCurrency(defCurrency);
 
     const travelMode = getTravelMode();
     setIsTravelMode(travelMode.isActive);
@@ -129,9 +149,8 @@ export function NewTransactionDialog({
     setEventId(undefined);
     setExcludeFromReport(false);
     
-    const defaultWalletId = getDefaultWallet();
-    const defaultWallet = wallets.find(w => w.id === defaultWalletId);
-    setWallet(defaultWallet ? defaultWallet.name : '');
+    const defaultWallet = wals.find(w => w.id === defWalletId);
+    setWallet(defaultWallet ? defaultWallet.name : (wals.length > 0 ? wals[0].name : ''));
 
     setDate(new Date());
     setAttachments([]);
@@ -140,9 +159,9 @@ export function NewTransactionDialog({
       setTransactionCurrency(travelMode.currency);
       setEventId(travelMode.eventId || undefined);
     } else {
-      setTransactionCurrency(currentDefaultCurrency);
+      setTransactionCurrency(defCurrency);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (isOpen) {
@@ -169,8 +188,9 @@ export function NewTransactionDialog({
   };
 
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     
     const finalAmount = amount || originalAmount;
 
@@ -184,6 +204,7 @@ export function NewTransactionDialog({
     }
 
     const newTransaction: Omit<Transaction, 'id'> = {
+        userId: user.uid,
         amount: Number(finalAmount),
         type,
         description,
@@ -191,18 +212,19 @@ export function NewTransactionDialog({
         wallet,
         date: format(date, 'yyyy-MM-dd'),
         currency: defaultCurrency,
-        attachments,
+        attachments: attachments as any,
         eventId: eventId,
         excludeFromReport: excludeFromReport,
     };
 
-    addTransaction(newTransaction);
+    await addTransaction(user.uid, newTransaction, attachments);
 
     toast({
       title: 'Transaction Saved',
       description: 'Your new transaction has been successfully recorded.',
     });
 
+    onTransactionAdded();
     onOpenChange(false);
   };
 
@@ -218,15 +240,15 @@ export function NewTransactionDialog({
   };
   
   const selectableCategories = useMemo(() => {
-    const selectedWallet = wallets.find(w => w.name === wallet);
+    const selectedWallet = allWallets.find(w => w.name === wallet);
     if (!selectedWallet || !selectedWallet.linkedCategoryIds || selectedWallet.linkedCategoryIds.length === 0) {
-      return categories;
+      return allCategories;
     }
     
     const linkedIds = new Set(selectedWallet.linkedCategoryIds);
     const availableCategories: Category[] = [];
 
-    categories.forEach(c => {
+    allCategories.forEach(c => {
         let isLinked = linkedIds.has(c.id);
         let current: Category | undefined = c;
         while(current && current.parentId) {
@@ -234,7 +256,7 @@ export function NewTransactionDialog({
                 isLinked = true;
                 break;
             }
-            current = categories.find(p => p.id === current?.parentId)
+            current = allCategories.find(p => p.id === current?.parentId)
         }
 
         if(isLinked) {
@@ -243,7 +265,7 @@ export function NewTransactionDialog({
     })
 
     return availableCategories;
-  }, [wallet]);
+  }, [wallet, allCategories]);
 
   const renderCategoryOptions = (isCommand: boolean) => {
     const topLevelCategories = selectableCategories.filter(c => c.parentId === null);
@@ -264,7 +286,7 @@ export function NewTransactionDialog({
                                 setCategory(currentValue === category ? "" : currentValue)
                                 setIsCategoryPopoverOpen(false)
                             }}
-                            className={cn(isSelectable ? 'font-normal' : 'font-semibold text-muted-foreground', `pl-${4 + level * 4}`)}
+                            className={cn(!isSelectable ? 'font-normal' : 'font-semibold text-muted-foreground', `pl-${4 + level * 4}`)}
                         >
                             <Check
                                 className={cn(
@@ -283,7 +305,7 @@ export function NewTransactionDialog({
                             key={c.id}
                             value={c.name}
                             disabled={!isSelectable}
-                            className={cn(isSelectable ? 'font-normal' : 'font-semibold text-muted-foreground', `pl-${4 + level * 4}`)}
+                            className={cn(!isSelectable ? 'font-normal' : 'font-semibold text-muted-foreground', `pl-${4 + level * 4}`)}
                         >
                             {c.name}
                         </SelectItem>
@@ -375,7 +397,7 @@ export function NewTransactionDialog({
                     <SelectValue placeholder="Select a wallet" />
                 </SelectTrigger>
                 <SelectContent>
-                    {wallets.map((wallet) => (
+                    {allWallets.map((wallet) => (
                     <SelectItem key={wallet.id} value={wallet.name}>
                         {wallet.name} ({wallet.currency})
                     </SelectItem>
@@ -443,7 +465,7 @@ export function NewTransactionDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  {events.map((event) => (
+                  {allEvents.map((event) => (
                     <SelectItem key={event.id} value={event.id}>
                       {event.name}
                     </SelectItem>
@@ -518,3 +540,5 @@ export function NewTransactionDialog({
     </Dialog>
   );
 }
+
+    
