@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { format } from 'date-fns';
 import type { Debt, Payment } from '@/lib/data';
+import { convertAmount } from './transaction-service';
 
 const debtsCollection = (userId: string) => collection(firestore, 'users', userId, 'debts');
 
@@ -74,16 +75,25 @@ export async function addPaymentToDebt(userId: string, debt: Debt, paymentAmount
 }
 
 export async function convertAllDebts(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
-    const exchangeRate = 1; // You should fetch this rate
     const allDebts = await getAllDebts(userId);
     const batch = writeBatch(firestore);
 
     for (const debt of allDebts) {
         if (debt.currency === fromCurrency) {
             const docRef = doc(firestore, 'users', userId, 'debts', debt.id);
+            const convertedAmount = await convertAmount(userId, debt.amount, fromCurrency, toCurrency);
+            
+            const convertedPayments = await Promise.all(
+              debt.payments.map(async (payment) => ({
+                ...payment,
+                amount: await convertAmount(userId, payment.amount, fromCurrency, toCurrency),
+              }))
+            );
+
             batch.update(docRef, {
-                amount: debt.amount * exchangeRate,
+                amount: convertedAmount,
                 currency: toCurrency,
+                payments: convertedPayments
             });
         }
     }

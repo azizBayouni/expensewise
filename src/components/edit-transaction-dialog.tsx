@@ -50,11 +50,11 @@ import { getDefaultCurrency } from '@/services/settings-service';
 import { getTravelMode } from '@/services/travel-mode-service';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { getAllCategories } from '@/services/category-service';
 import { getCategoryDepth } from '@/services/category-service';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { getExchangeRateApiKey } from '@/services/api-key-service';
 import { useAuth } from './auth-provider';
-import { getAllCategories } from '@/services/category-service';
 import { getAllWallets } from '@/services/wallet-service';
 import { getAllEvents } from '@/services/event-service';
 
@@ -122,11 +122,12 @@ export function EditTransactionDialog({
     from: string,
     to: string
   ) => {
+    if (!user) return;
     if (!amountToConvert || !to || from === to) {
       setAmount(amountToConvert);
       return;
     }
-    const apiKey = getExchangeRateApiKey();
+    const apiKey = await getExchangeRateApiKey(user.uid);
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
@@ -138,7 +139,7 @@ export function EditTransactionDialog({
     }
     setIsConverting(true);
     try {
-      const converted = await convertAmountService(amountToConvert, from, to);
+      const converted = await convertAmountService(user.uid, amountToConvert, from, to);
       setAmount(converted);
       if (from !== to) {
         toast({
@@ -157,7 +158,7 @@ export function EditTransactionDialog({
     } finally {
       setIsConverting(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   const resetAndInitialize = useCallback(async () => {
     if (!user) return;
@@ -217,7 +218,7 @@ export function EditTransactionDialog({
     })
 
     return availableCategories;
-  }, [wallet, allWallets]);
+  }, [wallet, allCategories]);
 
 
   const handleAmountChange = (value: string) => {
@@ -311,52 +312,50 @@ export function EditTransactionDialog({
   const renderCategoryOptions = (isCommand: boolean) => {
     const topLevelCategories = selectableCategories.filter(c => c.parentId === null);
 
-    const getOptionsForParent = (parentId: string | null, level: number): JSX.Element[] => {
-        return selectableCategories
-            .filter(c => c.parentId === parentId)
-            .flatMap(c => {
-                const isSelectable = getCategoryDepth(c.id, selectableCategories) > 0;
-                
-                if (isCommand) {
-                     const item = (
-                        <CommandItem
-                            key={c.id}
-                            value={c.name}
-                            disabled={!isSelectable}
-                            onSelect={(currentValue) => {
-                                setCategory(currentValue === category ? "" : currentValue)
-                                setIsCategoryPopoverOpen(false)
-                            }}
-                            className={cn(!isSelectable ? 'font-normal' : 'font-semibold text-muted-foreground', `pl-${4 + level * 4}`)}
-                        >
-                             <Check
-                                className={cn(
-                                    "mr-2 h-4 w-4",
-                                    category.toLowerCase() === c.name.toLowerCase() ? "opacity-100" : "opacity-0"
-                                )}
-                            />
-                            {c.name}
-                        </CommandItem>
-                    );
-                    const children = getOptionsForParent(c.id, level + 1);
-                    return [item, ...children];
-
-                } else {
-                    const item = (
-                        <SelectItem
-                            key={c.id}
-                            value={c.name}
-                            disabled={!isSelectable}
-                            className={cn(!isSelectable ? 'font-normal' : 'font-semibold text-muted-foreground', `pl-${4 + level * 4}`)}
-                        >
-                            {c.name}
-                        </SelectItem>
-                    );
-                    const children = getOptionsForParent(c.id, level + 1);
-                    return [item, ...children];
-                }
-
-            });
+    const getOptionsForParent = async (parentId: string | null, level: number): Promise<JSX.Element[]> => {
+      const children = selectableCategories.filter(c => c.parentId === parentId);
+      const options = await Promise.all(children.map(async c => {
+        const isSelectable = await getCategoryDepth(c.id, selectableCategories) > 0;
+        
+        if (isCommand) {
+          const item = (
+            <CommandItem
+              key={c.id}
+              value={c.name}
+              disabled={!isSelectable}
+              onSelect={(currentValue) => {
+                setCategory(currentValue === category ? "" : currentValue);
+                setIsCategoryPopoverOpen(false);
+              }}
+              className={cn(!isSelectable ? 'font-normal' : 'font-semibold text-muted-foreground', `pl-${4 + level * 4}`)}
+            >
+              <Check
+                className={cn(
+                  "mr-2 h-4 w-4",
+                  category.toLowerCase() === c.name.toLowerCase() ? "opacity-100" : "opacity-0"
+                )}
+              />
+              {c.name}
+            </CommandItem>
+          );
+          const childOptions = await getOptionsForParent(c.id, level + 1);
+          return [item, ...childOptions];
+        } else {
+          const item = (
+            <SelectItem
+              key={c.id}
+              value={c.name}
+              disabled={!isSelectable}
+              className={cn(!isSelectable ? 'font-normal' : 'font-semibold text-muted-foreground', `pl-${4 + level * 4}`)}
+            >
+              {c.name}
+            </SelectItem>
+          );
+          const childOptions = await getOptionsForParent(c.id, level + 1);
+          return [item, ...childOptions];
+        }
+      }));
+      return options.flat();
     };
 
     return topLevelCategories.flatMap(c => {
@@ -659,5 +658,3 @@ export function EditTransactionDialog({
     </Dialog>
   );
 }
-
-    
