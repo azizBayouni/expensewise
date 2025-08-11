@@ -36,7 +36,6 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/components/auth-provider';
 import { getAllTransactions } from '@/services/transaction-service';
 import { getAllCategories, getCategoryDepth } from '@/services/category-service';
 import { getAllWallets } from '@/services/wallet-service';
@@ -44,8 +43,9 @@ import { getAllEvents } from '@/services/event-service';
 import type { Transaction, Category, Wallet, Event } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const MOCK_USER_ID = 'dev-user';
+
 export default function TransactionsPage() {
-  const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -62,15 +62,14 @@ export default function TransactionsPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
     setIsLoading(true);
     try {
         const [trans, cats, wals, evs, currency] = await Promise.all([
-            getAllTransactions(user.uid),
-            getAllCategories(user.uid),
-            getAllWallets(user.uid),
-            getAllEvents(user.uid),
-            getDefaultCurrency(user.uid),
+            getAllTransactions(MOCK_USER_ID),
+            getAllCategories(MOCK_USER_ID),
+            getAllWallets(MOCK_USER_ID),
+            getAllEvents(MOCK_USER_ID),
+            getDefaultCurrency(MOCK_USER_ID),
         ]);
         setTransactions(trans);
         setCategories(cats);
@@ -82,14 +81,12 @@ export default function TransactionsPage() {
     } finally {
         setIsLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    if (user) {
-        fetchData();
-    }
+    fetchData();
      const handleDataChange = () => {
-        if(user) fetchData();
+        fetchData();
     };
     window.addEventListener('transactionsUpdated', handleDataChange);
     window.addEventListener('storage', handleDataChange); // For categories/wallets etc.
@@ -97,7 +94,7 @@ export default function TransactionsPage() {
         window.removeEventListener('transactionsUpdated', handleDataChange);
         window.removeEventListener('storage', handleDataChange);
     };
-  }, [user, fetchData]);
+  }, [fetchData]);
 
   const handleRowClick = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
@@ -320,5 +317,3 @@ export default function TransactionsPage() {
     </>
   );
 }
-
-    

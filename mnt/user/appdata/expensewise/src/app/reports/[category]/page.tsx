@@ -29,13 +29,13 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { EditTransactionDialog } from '@/components/edit-transaction-dialog';
-import { useAuth } from '@/components/auth-provider';
 import { getAllTransactions } from '@/services/transaction-service';
 import { getAllCategories } from '@/services/category-service';
 import type { Transaction, Category } from '@/lib/data';
 
+const MOCK_USER_ID = 'dev-user';
+
 export default function CategoryReportDetails() {
-  const { user } = useAuth();
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -50,13 +50,12 @@ export default function CategoryReportDetails() {
   const [categories, setCategories] = useState<Category[]>([]);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
     setIsLoading(true);
     try {
         const [trans, cats, currency] = await Promise.all([
-            getAllTransactions(user.uid),
-            getAllCategories(user.uid),
-            getDefaultCurrency(user.uid),
+            getAllTransactions(MOCK_USER_ID),
+            getAllCategories(MOCK_USER_ID),
+            getDefaultCurrency(MOCK_USER_ID),
         ]);
         setTransactions(trans);
         setCategories(cats);
@@ -66,13 +65,11 @@ export default function CategoryReportDetails() {
     } finally {
         setIsLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    if (user) {
-        fetchData();
-    }
-  }, [user, fetchData]);
+    fetchData();
+  }, [fetchData]);
 
   const { category: categoryName } = params;
 

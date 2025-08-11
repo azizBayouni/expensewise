@@ -81,12 +81,12 @@ export async function convertAllDebts(userId: string, fromCurrency: string, toCu
     for (const debt of allDebts) {
         if (debt.currency === fromCurrency) {
             const docRef = doc(firestore, 'users', userId, 'debts', debt.id);
-            const convertedAmount = await convertAmount(userId, debt.amount, fromCurrency, toCurrency);
+            const convertedAmount = await convertAmount(debt.amount, fromCurrency, toCurrency);
             
             const convertedPayments = await Promise.all(
               debt.payments.map(async (payment) => ({
                 ...payment,
-                amount: await convertAmount(userId, payment.amount, fromCurrency, toCurrency),
+                amount: await convertAmount(payment.amount, fromCurrency, toCurrency),
               }))
             );
 
@@ -99,5 +99,3 @@ export async function convertAllDebts(userId: string, fromCurrency: string, toCu
     }
     await batch.commit();
 }
-
-    

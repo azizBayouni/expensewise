@@ -76,7 +76,7 @@ export async function convertAllWallets(userId: string, fromCurrency: string, to
     for (const wallet of allWallets) {
         if (wallet.currency === fromCurrency) {
             const docRef = doc(firestore, 'users', userId, 'wallets', wallet.id);
-            const convertedBalance = await convertAmount(userId, wallet.balance, fromCurrency, toCurrency);
+            const convertedBalance = await convertAmount(wallet.balance, fromCurrency, toCurrency);
             batch.update(docRef, {
                 balance: convertedBalance,
                 currency: toCurrency,
@@ -85,5 +85,3 @@ export async function convertAllWallets(userId: string, fromCurrency: string, to
     }
     await batch.commit();
 }
-
-    

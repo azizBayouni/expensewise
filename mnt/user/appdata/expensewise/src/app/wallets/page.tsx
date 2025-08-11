@@ -36,13 +36,13 @@ import { AddWalletDialog } from '@/components/add-wallet-dialog';
 import { deleteWallet, getDefaultWallet, setDefaultWallet, getAllWallets } from '@/services/wallet-service';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/auth-provider';
 import { getAllTransactions } from '@/services/transaction-service';
 import { getWalletBalance } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const MOCK_USER_ID = 'dev-user';
+
 export default function WalletsPage() {
-  const { user } = useAuth();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
@@ -53,13 +53,12 @@ export default function WalletsPage() {
   const router = useRouter();
   
   const fetchData = useCallback(async () => {
-    if (!user) return;
     setIsLoading(true);
     try {
         const [wals, trans, defWallet] = await Promise.all([
-            getAllWallets(user.uid),
-            getAllTransactions(user.uid),
-            getDefaultWallet(user.uid)
+            getAllWallets(MOCK_USER_ID),
+            getAllTransactions(MOCK_USER_ID),
+            getDefaultWallet(MOCK_USER_ID)
         ]);
         
         const walletsWithBalance = wals.map(w => ({
@@ -74,14 +73,12 @@ export default function WalletsPage() {
     } finally {
         setIsLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    if(user) {
-        fetchData();
-    }
+    fetchData();
     const handleDataChange = () => {
-       if (user) fetchData();
+       fetchData();
     }
     window.addEventListener('transactionsUpdated', handleDataChange);
     window.addEventListener('walletsUpdated', handleDataChange);
@@ -93,7 +90,7 @@ export default function WalletsPage() {
       window.removeEventListener('defaultWalletChanged', handleDataChange);
     }
 
-  }, [user, fetchData]);
+  }, [fetchData]);
 
   const handleEditClick = (e: React.MouseEvent, wallet: Wallet) => {
     e.stopPropagation();
@@ -102,9 +99,8 @@ export default function WalletsPage() {
   };
 
   const handleDeleteClick = (e: React.MouseEvent, walletId: string) => {
-    if (!user) return;
     e.stopPropagation();
-    deleteWallet(user.uid, walletId);
+    deleteWallet(MOCK_USER_ID, walletId);
     toast({
         title: "Wallet Deleted",
         description: "The wallet has been successfully deleted.",
@@ -113,9 +109,8 @@ export default function WalletsPage() {
   };
 
   const handleSetDefault = (e: React.MouseEvent, walletId: string) => {
-    if (!user) return;
     e.stopPropagation();
-    setDefaultWallet(user.uid, walletId);
+    setDefaultWallet(MOCK_USER_ID, walletId);
     setDefaultWalletId(walletId);
     toast({
       title: "Default Wallet Set",

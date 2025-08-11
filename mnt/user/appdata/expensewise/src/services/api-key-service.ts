@@ -1,29 +1,21 @@
 
 'use client';
 
-import { firestore } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+const EXCHANGERATE_API_KEY_STORAGE_KEY = 'expensewise-exchangerate-api-key';
 
-const settingsDoc = (userId: string) => doc(firestore, 'users', userId, 'settings', 'main');
-
-export async function getExchangeRateApiKey(userId: string): Promise<string | null> {
+export function getExchangeRateApiKey(): string | null {
   if (typeof window !== 'undefined') {
-    const docSnap = await getDoc(settingsDoc(userId));
-    if (docSnap.exists() && docSnap.data().exchangeRateApiKey) {
-        return docSnap.data().exchangeRateApiKey;
-    }
+    return localStorage.getItem(EXCHANGERATE_API_KEY_STORAGE_KEY);
   }
   return null;
 }
 
-export async function setExchangeRateApiKey(userId: string, apiKey: string): Promise<void> {
+export function setExchangeRateApiKey(apiKey: string): void {
   if (typeof window !== 'undefined') {
     if (apiKey) {
-      await setDoc(settingsDoc(userId), { exchangeRateApiKey: apiKey }, { merge: true });
+      localStorage.setItem(EXCHANGERATE_API_KEY_STORAGE_KEY, apiKey);
     } else {
-      await setDoc(settingsDoc(userId), { exchangeRateApiKey: null }, { merge: true });
+      localStorage.removeItem(EXCHANGERATE_API_KEY_STORAGE_KEY);
     }
   }
 }
-
-    

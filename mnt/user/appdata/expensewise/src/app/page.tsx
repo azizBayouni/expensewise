@@ -29,7 +29,6 @@ import { TrendingReportCard } from '@/components/trending-report-card';
 import { EditTransactionDialog } from '@/components/edit-transaction-dialog';
 import { isThisMonth, parseISO, startOfMonth, endOfMonth, format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/components/auth-provider';
 import { getAllTransactions } from '@/services/transaction-service';
 import { getAllWallets } from '@/services/wallet-service';
 import { getAllDebts } from '@/services/debt-service';
@@ -37,8 +36,10 @@ import { getWalletBalance } from '@/lib/data';
 import type { Transaction, Wallet as WalletType, Debt } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// This will be the placeholder user ID for all Firestore operations.
+const MOCK_USER_ID = 'dev-user';
+
 export default function Dashboard() {
-  const { user } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -51,34 +52,29 @@ export default function Dashboard() {
   const [debts, setDebts] = useState<Debt[]>([]);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
     setIsLoading(true);
     try {
-        const [trans, wals, dts, currency] = await Promise.all([
-            getAllTransactions(user.uid),
-            getAllWallets(user.uid),
-            getAllDebts(user.uid),
-            getDefaultCurrency(user.uid),
+        const [trans, wals, dts] = await Promise.all([
+            getAllTransactions(MOCK_USER_ID),
+            getAllWallets(MOCK_USER_ID),
+            getAllDebts(MOCK_USER_ID),
         ]);
         setTransactions(trans);
         setWallets(wals);
         setDebts(dts);
-        setDefaultCurrency(currency);
+        setDefaultCurrency(await getDefaultCurrency(MOCK_USER_ID));
     } catch (error) {
         console.error("Error fetching dashboard data:", error);
     } finally {
         setIsLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    if (user) {
-        fetchData();
-    }
-  }, [user, fetchData]);
+    fetchData();
+  }, [fetchData]);
   
   useEffect(() => {
-    if (!user) return;
     const handleDataChange = () => fetchData();
     window.addEventListener('transactionsUpdated', handleDataChange);
     window.addEventListener('walletsUpdated', handleDataChange);
@@ -91,7 +87,7 @@ export default function Dashboard() {
         window.removeEventListener('debtsUpdated', handleDataChange);
         window.removeEventListener('storage', handleDataChange);
     };
-  }, [user, fetchData]);
+  }, [fetchData]);
 
 
   const dashboardData = useMemo(() => {

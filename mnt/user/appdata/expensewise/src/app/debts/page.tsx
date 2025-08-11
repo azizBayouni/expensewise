@@ -24,12 +24,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { EditDebtDialog } from '@/components/edit-debt-dialog';
-import { useAuth } from '@/components/auth-provider';
 import { getAllDebts } from '@/services/debt-service';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const MOCK_USER_ID = 'dev-user';
+
 export default function DebtsPage() {
-  const { user } = useAuth();
   const [defaultCurrency, setDefaultCurrency] = useState('USD');
   const [debts, setDebts] = useState<Debt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,12 +38,11 @@ export default function DebtsPage() {
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
     setIsLoading(true);
     try {
         const [userDebts, currency] = await Promise.all([
-            getAllDebts(user.uid),
-            getDefaultCurrency(user.uid),
+            getAllDebts(MOCK_USER_ID),
+            getDefaultCurrency(MOCK_USER_ID),
         ]);
         setDebts(userDebts);
         setDefaultCurrency(currency);
@@ -52,18 +51,16 @@ export default function DebtsPage() {
     } finally {
         setIsLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    if(user) {
-        fetchData();
-    }
+    fetchData();
     const handleDataChange = () => {
-        if(user) fetchData();
+        fetchData();
     }
     window.addEventListener('debtsUpdated', handleDataChange);
     return () => window.removeEventListener('debtsUpdated', handleDataChange);
-  }, [user, fetchData]);
+  }, [fetchData]);
 
   const payables = debts.filter((d) => d.type === 'payable');
   const receivables = debts.filter((d) => d.type === 'receivable');
@@ -242,5 +239,3 @@ export default function DebtsPage() {
     </>
   );
 }
-
-    

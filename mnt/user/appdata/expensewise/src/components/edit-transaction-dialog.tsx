@@ -51,13 +51,13 @@ import { getDefaultCurrency } from '@/services/settings-service';
 import { getTravelMode } from '@/services/travel-mode-service';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getCategoryDepth } from '@/services/category-service';
+import { getAllCategories, getCategoryDepth } from '@/services/category-service';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { getExchangeRateApiKey } from '@/services/api-key-service';
-import { useAuth } from './auth-provider';
-import { getAllCategories } from '@/services/category-service';
 import { getAllWallets } from '@/services/wallet-service';
 import { getAllEvents } from '@/services/event-service';
+
+const MOCK_USER_ID = 'dev-user';
 
 interface EditTransactionDialogProps {
   isOpen: boolean;
@@ -72,7 +72,6 @@ export function EditTransactionDialog({
   transaction,
   onTransactionUpdated
 }: EditTransactionDialogProps) {
-  const { user } = useAuth();
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState<number | ''>('');
   const [originalAmount, setOriginalAmount] = useState<number | ''>('');
@@ -97,14 +96,13 @@ export function EditTransactionDialog({
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
     setIsLoading(true);
     try {
         const [cats, wals, evs, defCurrency] = await Promise.all([
-            getAllCategories(user.uid),
-            getAllWallets(user.uid),
-            getAllEvents(user.uid),
-            getDefaultCurrency(user.uid)
+            getAllCategories(MOCK_USER_ID),
+            getAllWallets(MOCK_USER_ID),
+            getAllEvents(MOCK_USER_ID),
+            getDefaultCurrency(MOCK_USER_ID)
         ]);
         setAllCategories(cats);
         setAllWallets(wals);
@@ -116,19 +114,18 @@ export function EditTransactionDialog({
     } finally {
         setIsLoading(false);
     }
-  }, [user, toast]);
+  }, [toast]);
 
   const convertAmount = useCallback(async (
     amountToConvert: number,
     from: string,
     to: string
   ) => {
-    if (!user) return;
     if (!amountToConvert || !to || from === to) {
       setAmount(amountToConvert);
       return;
     }
-    const apiKey = await getExchangeRateApiKey(user.uid);
+    const apiKey = getExchangeRateApiKey();
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
@@ -140,7 +137,7 @@ export function EditTransactionDialog({
     }
     setIsConverting(true);
     try {
-      const converted = await convertAmountService(user.uid, amountToConvert, from, to);
+      const converted = await convertAmountService(amountToConvert, from, to);
       setAmount(converted);
       if (from !== to) {
         toast({
@@ -159,10 +156,9 @@ export function EditTransactionDialog({
     } finally {
       setIsConverting(false);
     }
-  }, [toast, user]);
+  }, [toast]);
 
   const resetAndInitialize = useCallback(async () => {
-    if (!user) return;
     await fetchData();
     const travelMode = getTravelMode();
     setIsTravelMode(travelMode.isActive);
@@ -185,7 +181,7 @@ export function EditTransactionDialog({
       setOriginalAmount(transaction.amount);
     }
     setNewAttachments([]);
-  }, [transaction, user, fetchData]);
+  }, [transaction, fetchData]);
 
   useEffect(() => {
     if (isOpen) {
@@ -242,7 +238,6 @@ export function EditTransactionDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
     
     const finalAmount = amount || originalAmount;
 
@@ -270,7 +265,7 @@ export function EditTransactionDialog({
           excludeFromReport: excludeFromReport,
       };
 
-      await updateTransaction(user.uid, updatedTransaction, newAttachments);
+      await updateTransaction(MOCK_USER_ID, updatedTransaction, newAttachments);
 
       toast({
         title: 'Transaction Updated',
@@ -283,8 +278,8 @@ export function EditTransactionDialog({
   };
 
   const handleDelete = async () => {
-    if (transaction && user) {
-        await deleteTransaction(user.uid, transaction.id);
+    if (transaction) {
+        await deleteTransaction(MOCK_USER_ID, transaction.id);
         toast({
             title: 'Transaction Deleted',
             description: 'The transaction has been successfully deleted.',

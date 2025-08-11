@@ -17,13 +17,13 @@ import {
 import { startOfMonth, isWithinInterval, parseISO } from 'date-fns';
 import { TrendingUp, TrendingDown, Wallet, HelpCircle } from 'lucide-react';
 import { getDefaultCurrency } from '@/services/settings-service';
-import { useAuth } from './auth-provider';
 import { getAllTransactions } from '@/services/transaction-service';
 import type { Transaction } from '@/lib/data';
 import { Skeleton } from './ui/skeleton';
 
+const MOCK_USER_ID = 'dev-user';
+
 export function TrendingReportCard() {
-  const { user } = useAuth();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
   const [defaultCurrency, setDefaultCurrency] = useState('USD');
@@ -31,12 +31,11 @@ export function TrendingReportCard() {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
     setIsLoading(true);
     try {
         const [trans, currency] = await Promise.all([
-            getAllTransactions(user.uid),
-            getDefaultCurrency(user.uid),
+            getAllTransactions(MOCK_USER_ID),
+            getDefaultCurrency(MOCK_USER_ID),
         ]);
         setTransactions(trans);
         setDefaultCurrency(currency);
@@ -45,18 +44,16 @@ export function TrendingReportCard() {
     } finally {
         setIsLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    if(user) {
-        fetchData();
-    }
+    fetchData();
      const handleDataChange = () => {
-        if(user) fetchData();
+        fetchData();
     };
     window.addEventListener('transactionsUpdated', handleDataChange);
     return () => window.removeEventListener('transactionsUpdated', handleDataChange);
-  }, [user, fetchData]);
+  }, [fetchData]);
 
   useEffect(() => {
     if (!api) {
