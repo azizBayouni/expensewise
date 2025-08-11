@@ -43,6 +43,7 @@ import { getExchangeRateApiKey, setExchangeRateApiKey } from "@/services/api-key
 import { useAuth } from "@/components/auth-provider";
 import { getAllEvents } from "@/services/event-service";
 import { getAllTransactions } from "@/services/transaction-service";
+import { verifyApiKey } from "@/ai/flows/verify-api-key-flow";
 
 
 export default function SettingsPage() {
@@ -593,31 +594,28 @@ export default function SettingsPage() {
   const handleApiKeySave = async () => {
     if (!user) return;
     setIsVerifyingKey(true);
-    const url = `https://v6.exchangerate-api.com/v6/${exchangeRateKey}/latest/USD`;
-
+    
     try {
-      const response = await fetch(url);
-      const data = await response.json();
+        const result = await verifyApiKey({ apiKey: exchangeRateKey });
 
-      if (response.ok && data.result === 'success') {
-        await setExchangeRateApiKey(user.uid, exchangeRateKey);
-        toast({
-            title: 'API Key Verified & Saved',
-            description: 'Your ExchangeRate-API key is valid and has been saved.',
-        });
-      } else {
-         const errorType = data['error-type'] || `HTTP status ${response.status}`;
-         toast({
-            title: 'Invalid API Key',
-            description: `Reason: ${errorType}. Please check the key and try again.`,
-            variant: 'destructive',
-        });
-      }
+        if (result.isValid) {
+            await setExchangeRateApiKey(user.uid, exchangeRateKey);
+            toast({
+                title: 'API Key Verified & Saved',
+                description: 'Your ExchangeRate-API key is valid and has been saved.',
+            });
+        } else {
+            toast({
+                title: 'Invalid API Key',
+                description: result.error || 'Please check the key and try again.',
+                variant: 'destructive',
+            });
+        }
     } catch (e: any) {
-        console.error("API Key verification fetch failed:", e);
+        console.error("API Key verification failed:", e);
         toast({
             title: 'Verification Failed',
-            description: 'Could not connect to the verification service. Please check your network connection and try again.',
+            description: 'Could not connect to the verification service. Please try again later.',
             variant: 'destructive',
         });
     } finally {
@@ -889,5 +887,3 @@ export default function SettingsPage() {
     </>
   )
 }
-
-    

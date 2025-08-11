@@ -1,21 +1,29 @@
 
 'use client';
 
-const EXCHANGERATE_API_KEY_STORAGE_KEY = 'expensewise-exchangerate-api-key';
+import { firestore } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-export function getExchangeRateApiKey(): string | null {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem(EXCHANGERATE_API_KEY_STORAGE_KEY);
+const settingsDoc = (userId: string) => doc(firestore, 'users', userId, 'settings', 'main');
+
+export async function getExchangeRateApiKey(userId: string): Promise<string | null> {
+  if (!userId) return null;
+  try {
+    const docSnap = await getDoc(settingsDoc(userId));
+    if (docSnap.exists() && docSnap.data().exchangeRateApiKey) {
+        return docSnap.data().exchangeRateApiKey;
+    }
+  } catch (error) {
+    console.error("Error fetching API key:", error);
   }
   return null;
 }
 
-export function setExchangeRateApiKey(apiKey: string): void {
-  if (typeof window !== 'undefined') {
-    if (apiKey) {
-      localStorage.setItem(EXCHANGERATE_API_KEY_STORAGE_KEY, apiKey);
-    } else {
-      localStorage.removeItem(EXCHANGERATE_API_KEY_STORAGE_KEY);
-    }
+export async function setExchangeRateApiKey(userId: string, apiKey: string): Promise<void> {
+  if (!userId) return;
+  try {
+    await setDoc(settingsDoc(userId), { exchangeRateApiKey: apiKey }, { merge: true });
+  } catch (error) {
+    console.error("Error setting API key:", error);
   }
 }
