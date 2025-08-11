@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect } from "react";
@@ -25,9 +24,9 @@ import { currencies } from "@/lib/data"
 import { FileUp, Download, UploadCloud, Moon, Sun, Trash2, HardDriveDownload, HardDriveUpload, KeyRound } from "lucide-react"
 import { getDefaultCurrency, setDefaultCurrency } from "@/services/settings-service";
 import { useToast } from "@/hooks/use-toast";
-import { convertAllTransactions, addTransactions, deleteAllTransactions as deleteAllTransactionsService } from "@/services/transaction-service";
-import { convertAllWallets } from "@/services/wallet-service";
-import { convertAllDebts } from "@/services/debt-service";
+import { addTransactions, deleteAllTransactions as deleteAllTransactionsService, convertAllTransactions } from "@/services/transaction-service";
+import { convertAllWallets, getAllWallets, setDefaultWallet, getDefaultWallet } from "@/services/wallet-service";
+import { convertAllDebts, getAllDebts } from "@/services/debt-service";
 import { ConfirmCurrencyChangeDialog } from "@/components/confirm-currency-change-dialog";
 import { updateUserProfile, getCurrentUser } from "@/services/user-service";
 import type { Transaction, Category, Wallet, Debt, Event } from "@/lib/data";
@@ -37,16 +36,13 @@ import { Switch } from "@/components/ui/switch";
 import { DeleteAllTransactionsDialog } from "@/components/delete-all-transactions-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTheme, setTheme as setAppTheme } from "@/services/theme-service";
-import { getDefaultWallet, setDefaultWallet } from "@/services/wallet-service";
 import { getTravelMode, setTravelMode } from "@/services/travel-mode-service";
 import { addCategory, getAllCategories, deleteAllCategories } from "@/services/category-service";
 import { DeleteAllCategoriesDialog } from "@/components/delete-all-categories-dialog";
 import { getExchangeRateApiKey, setExchangeRateApiKey } from "@/services/api-key-service";
 import { useAuth } from "@/components/auth-provider";
-import { getAllWallets } from "@/services/wallet-service";
 import { getAllEvents } from "@/services/event-service";
 import { getAllTransactions } from "@/services/transaction-service";
-import { getAllDebts } from "@/services/debt-service";
 
 
 export default function SettingsPage() {
@@ -81,6 +77,7 @@ export default function SettingsPage() {
   }, [user]);
 
   const handleProfileSave = async () => {
+    if (!user) return;
     try {
         await updateUserProfile({ displayName: name });
         toast({
@@ -892,3 +889,5 @@ export default function SettingsPage() {
     </>
   )
 }
+
+    
