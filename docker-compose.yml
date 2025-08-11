@@ -11,13 +11,11 @@ services:
       - firebase-emulators
 
   firebase-emulators:
-    image: mtlynch/firebase-emulator:latest
+    image: google/cloud-sdk:emulators
     ports:
       - '4000:4000' # UI
       - '8080:8080' # Firestore
       - '9099:9099' # Auth
       - '9199:9199' # Storage
     command: >
-      /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
-    volumes:
-      - ./seed_data:/app/seed_data
+      gcloud emulators firestore start --host-port=0.0.0.0:8080
