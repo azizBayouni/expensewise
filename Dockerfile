@@ -1,53 +1,48 @@
-# 1. Install dependencies only when needed
-FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+# Dockerfile
+
+# 1. Official Node.js 20 Alpine image for a lean base
+FROM node:20-alpine AS base
+
+# 2. Set up the builder stage
+FROM base AS builder
 WORKDIR /app
 
-# Install dependencies based on the preferred package manager
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
-RUN \
-  if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
-  elif [ -f package-lock.json ]; then npm ci; \
-  elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
-  else echo "Lockfile not found." && exit 1; \
-  fi
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm install
 
-# 2. Rebuild the source code only when needed
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copy the rest of the application source code
 COPY . .
 
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-# Uncomment the following line in case you want to disable telemetry during the build.
-# ENV NEXT_TELEMETRY_DISABLED 1
-
+# Build the Next.js application
 RUN npm run build
 
-# 3. Production image, copy all the files and run next
-FROM node:20-alpine AS runner
+# 3. Production image
+FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-# Uncomment the following line in case you want to disable telemetry during runtime.
-# ENV NEXT_TELEMETRY_DISABLED 1
+# Set environment to production
+ENV NODE_ENV=production
 
+# Create a non-root user for security
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
+# Copy the standalone output from the builder stage
+# This includes the server, node_modules, and other necessary files
+COPY --from=builder /app/.next/standalone ./
 
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Copy the public and static assets from their location within the standalone output
+COPY --from=builder /app/.next/static ./.next/static
 
+# Set the correct user for running the application
 USER nextjs
 
+# Expose the port the app runs on
 EXPOSE 3000
 
-ENV PORT 3000
+# Set the correct host for Docker
+ENV HOSTNAME "0.0.0.0"
 
+# Command to start the server
 CMD ["node", "server.js"]
