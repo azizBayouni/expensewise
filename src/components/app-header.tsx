@@ -19,43 +19,37 @@ import { Plane, LogOut, User, Settings, CreditCard } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { TravelModeDialog } from './travel-mode-dialog';
-import { getUser } from '@/services/user-service';
-import type { User as UserType } from '@/lib/data';
 import { getTravelMode, disconnectTravelMode } from '@/services/travel-mode-service';
+import { useAuth } from './auth-provider';
 
 export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, logout } = useAuth();
   const [isTravelMode, setIsTravelMode] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
 
   useEffect(() => {
     const travelModeState = getTravelMode();
     setIsTravelMode(travelModeState.isActive);
-    setCurrentUser(getUser());
 
     const handleTravelModeChange = () => {
       const updatedState = getTravelMode();
       setIsTravelMode(updatedState.isActive);
     };
-
-    const handleProfileUpdate = () => {
-        setCurrentUser(getUser());
-    }
     
     window.addEventListener('travelModeChanged', handleTravelModeChange);
-    window.addEventListener('profileUpdated', handleProfileUpdate);
 
     return () => {
       window.removeEventListener('travelModeChanged', handleTravelModeChange);
-      window.removeEventListener('profileUpdated', handleProfileUpdate);
     };
   }, []);
 
   const getPageTitle = () => {
     if (pathname === '/') return 'Dashboard';
-    const name = pathname.split('/').pop() || '';
+    // A simple way to derive title from path. Might need enhancement for complex routes.
+    const name = pathname.split('/').pop()?.split('-').join(' ') || '';
+    if (name === '[category]') return 'Category Report'; // Handle dynamic route
     return name.charAt(0).toUpperCase() + name.slice(1);
   };
 
@@ -67,7 +61,8 @@ export function AppHeader() {
     }
   };
 
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return '??';
     const names = name.split(' ');
     if (names.length > 1) {
       return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
@@ -94,22 +89,22 @@ export function AppHeader() {
             <span className="hidden sm:inline">Travel Mode</span>
           </Label>
         </div>
-        {currentUser && (
+        {user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-                  <AvatarFallback>{getInitials(currentUser.name)}</AvatarFallback>
+                  <AvatarImage src={user.photoURL ?? undefined} alt={user.displayName ?? ''} />
+                  <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{currentUser.name}</p>
+                  <p className="text-sm font-medium leading-none">{user.displayName}</p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    {currentUser.email}
+                    {user.email}
                   </p>
                 </div>
               </DropdownMenuLabel>
@@ -120,6 +115,11 @@ export function AppHeader() {
                   <span>Settings</span>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={logout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
