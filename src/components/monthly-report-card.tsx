@@ -15,8 +15,8 @@ import type { Transaction } from '@/lib/data';
 import { isThisMonth, parseISO } from 'date-fns';
 import { getDefaultCurrency } from '@/services/settings-service';
 import { getAllTransactions } from '@/services/transaction-service';
-import { useAuth } from './auth-provider';
 import { Skeleton } from './ui/skeleton';
+import { useAuth } from './auth-provider';
 
 export function MonthlyReportCard() {
     const { user } = useAuth();
@@ -42,20 +42,19 @@ export function MonthlyReportCard() {
     }, [user]);
 
     useEffect(() => {
-        if(user) {
+        if (user) {
             fetchData();
         }
-    }, [user, fetchData]);
-
-    useEffect(() => {
-        const handleDataChange = () => fetchData();
+        const handleDataChange = () => {
+            if(user) fetchData();
+        };
         window.addEventListener('transactionsUpdated', handleDataChange);
         window.addEventListener('storage', handleDataChange);
         return () => {
             window.removeEventListener('transactionsUpdated', handleDataChange);
             window.removeEventListener('storage', handleDataChange);
         };
-    }, [fetchData]);
+    }, [user, fetchData]);
 
     const monthlyData = useMemo(() => {
         const reportableTransactions = transactions.filter(t => !t.excludeFromReport);
@@ -121,7 +120,7 @@ export function MonthlyReportCard() {
         </div>
         <Separator className="my-4" />
         <div className="h-48">
-            <MonthlyReportChart data={monthlyData.transactions} />
+            <MonthlyReportChart data={monthlyData.transactions} currency={defaultCurrency} />
         </div>
       </CardContent>
     </Card>

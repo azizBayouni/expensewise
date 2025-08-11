@@ -6,10 +6,10 @@ import { ChartTooltipContent, ChartContainer, ChartConfig } from '@/components/u
 import { eachDayOfInterval, endOfMonth, format, parseISO, startOfMonth } from 'date-fns';
 import { useMemo } from 'react';
 import type { Transaction } from '@/lib/data';
-import { getDefaultCurrency } from '@/services/settings-service';
 
 interface MonthlyReportChartProps {
     data: Transaction[];
+    currency: string;
 }
 
 const chartConfig = {
@@ -19,8 +19,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function MonthlyReportChart({ data }: MonthlyReportChartProps) {
-  const defaultCurrency = getDefaultCurrency();
+export function MonthlyReportChart({ data, currency }: MonthlyReportChartProps) {
 
   const chartData = useMemo(() => {
     if (data.length === 0) return [];
@@ -90,7 +89,7 @@ export function MonthlyReportChart({ data }: MonthlyReportChartProps) {
                 <div className="bg-background border rounded-lg p-2 shadow-lg">
                     <p className="text-sm text-muted-foreground">{label}</p>
                     <p className="font-bold text-lg">
-                        {payload[0].value ? new Intl.NumberFormat('en-US', { style: 'currency', currency: defaultCurrency }).format(payload[0].value as number) : 'N/A'}
+                        {payload[0].value ? new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).format(payload[0].value as number) : 'N/A'}
                     </p>
                 </div>
                 ) : null
