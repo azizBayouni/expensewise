@@ -25,85 +25,66 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { emojiIcons, type Wallet, currencies, type Category, getCategoryDepth } from '@/lib/data';
-import { updateWallet } from '@/services/wallet-service';
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { emojiIcons, currencies } from '@/lib/data';
+import { addWallet } from '@/services/wallet-service';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { MultiSelect, type MultiSelectOption } from './ui/multi-select';
+import { getDefaultCurrency } from '@/services/settings-service';
 import { ScrollArea } from './ui/scroll-area';
-import { cn } from '@/lib/utils';
-import { getAllCategories } from '@/services/category-service';
 import { useAuth } from './auth-provider';
 
-interface EditWalletDialogProps {
+interface AddWalletDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  wallet: Wallet | null;
-  onWalletUpdated: () => void;
+  onWalletAdded: () => void;
 }
 
-export function EditWalletDialog({
+export function AddWalletDialog({
   isOpen,
   onOpenChange,
-  wallet,
-  onWalletUpdated,
-}: EditWalletDialogProps) {
+  onWalletAdded,
+}: AddWalletDialogProps) {
   const { user } = useAuth();
   const [name, setName] = useState('');
-  const [icon, setIcon] = useState<string | undefined>(undefined);
+  const [icon, setIcon] = useState('🏦');
   const [currency, setCurrency] = useState('');
-  const [linkedCategoryIds, setLinkedCategoryIds] = useState<string[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState('');
-  const [allCategories, setAllCategories] = useState<Category[]>([]);
   const { toast } = useToast();
-
-  const fetchData = useCallback(async () => {
-    if (!user) return;
-    const cats = await getAllCategories(user.uid);
-    setAllCategories(cats);
+  
+  const fetchDefaultData = useCallback(async () => {
+    if (user) {
+        setCurrency(await getDefaultCurrency(user.uid));
+    }
   }, [user]);
 
   useEffect(() => {
     if (isOpen) {
-        fetchData();
-        if (wallet) {
-          setName(wallet.name);
-          setIcon(wallet.icon);
-          setCurrency(wallet.currency);
-          setLinkedCategoryIds(wallet.linkedCategoryIds || []);
-        }
-        setIconSearch('');
+      // Reset form when dialog opens
+      setName('');
+      setIcon('🏦');
+      fetchDefaultData();
+      setIconSearch('');
     }
-  }, [wallet, isOpen, fetchData]);
+  }, [isOpen, fetchDefaultData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (wallet && user) {
-      const updatedWallet: Wallet = {
-        ...wallet,
+    if (!user) return;
+    if (name) {
+      await addWallet(user.uid, {
         name,
         icon,
         currency,
-        linkedCategoryIds,
-      };
-      await updateWallet(user.uid, updatedWallet);
-      toast({
-          title: "Wallet Updated",
-          description: `The wallet "${name}" has been saved.`,
       });
-      onWalletUpdated();
+      toast({
+          title: "Wallet Added",
+          description: `The wallet "${name}" has been created.`,
+      });
+      onWalletAdded();
       onOpenChange(false);
     }
   };
-  
-  const categoryOptions = useMemo(() => {
-     return allCategories.map(c => ({
-        label: c.name,
-        value: c.id,
-        depth: getCategoryDepth(c.id, allCategories)
-     }));
-  }, [allCategories]);
 
   const filteredIcons = useMemo(() => {
     if (!iconSearch) return emojiIcons;
@@ -112,26 +93,24 @@ export function EditWalletDialog({
     );
   }, [iconSearch]);
   
-  if (!wallet) return null;
-
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
-          <DialogHeader className="flex-shrink-0">
-            <DialogTitle>Edit Wallet</DialogTitle>
+          <DialogHeader>
+            <DialogTitle>Add New Wallet</DialogTitle>
             <DialogDescription>
-              Update the details and linked categories for your wallet.
+              Create a new wallet to manage your funds.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4 flex-1 overflow-y-auto pr-4 -mr-4">
+          <div className="space-y-4 py-4">
             <div className="flex items-end gap-4">
               <div className="space-y-2">
                 <Label htmlFor="icon">Icon</Label>
                 <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-16 h-16 text-2xl">
-                      {icon || '...'}
+                      {icon}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -143,7 +122,7 @@ export function EditWalletDialog({
                           className="w-full"
                         />
                     </div>
-                     <ScrollArea className="h-48">
+                    <ScrollArea className="h-48">
                         <div className="grid grid-cols-5 gap-2 p-2">
                         {filteredIcons.map((emoji, index) => (
                             <Button
@@ -165,45 +144,30 @@ export function EditWalletDialog({
               </div>
               <div className="space-y-2 flex-1">
                 <Label htmlFor="name">Name</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. Vacation Fund" />
               </div>
             </div>
-            <div className="space-y-2">
+             <div className="space-y-2">
                 <Label htmlFor="currency">Currency</Label>
                 <Select value={currency} onValueChange={setCurrency}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a currency" />
                   </SelectTrigger>
                   <SelectContent>
-                     <ScrollArea className="h-48">
+                    <ScrollArea className="h-48">
                         {currencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </ScrollArea>
                   </SelectContent>
                 </Select>
-                 <p className="text-xs text-muted-foreground">
-                    Changing the currency will not convert the balance.
-                </p>
-            </div>
-             <div className="space-y-2">
-                <Label htmlFor="linked-categories">Linked Categories</Label>
-                <MultiSelect
-                    options={categoryOptions}
-                    selected={linkedCategoryIds}
-                    onChange={setLinkedCategoryIds}
-                    placeholder="All categories"
-                />
-                 <p className="text-xs text-muted-foreground">
-                    If no categories are selected, all will be available for transactions with this wallet.
-                </p>
-            </div>
+              </div>
           </div>
-          <DialogFooter className="border-t pt-4 flex-shrink-0">
+          <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="secondary">
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit">Save Changes</Button>
+            <Button type="submit">Save Wallet</Button>
           </DialogFooter>
         </form>
       </DialogContent>

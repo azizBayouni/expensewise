@@ -46,12 +46,14 @@ interface EditDebtDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   debt: Debt | null;
+  onDebtUpdated: () => void;
 }
 
 export function EditDebtDialog({
   isOpen,
   onOpenChange,
-  debt
+  debt,
+  onDebtUpdated,
 }: EditDebtDialogProps) {
   const { user } = useAuth();
   const [type, setType] = useState<'payable' | 'receivable'>('payable');
@@ -122,7 +124,7 @@ export function EditDebtDialog({
         description: `The debt for "${person}" has been updated.`,
     });
     
-    window.dispatchEvent(new Event('debtsUpdated'));
+    onDebtUpdated();
     onOpenChange(false);
   };
   
@@ -134,7 +136,7 @@ export function EditDebtDialog({
           description: 'The debt has been successfully deleted.',
           variant: 'destructive'
       });
-      window.dispatchEvent(new Event('debtsUpdated'));
+      onDebtUpdated();
       onOpenChange(false);
     }
   };
@@ -150,7 +152,7 @@ export function EditDebtDialog({
         toast({ title: "Overpayment", description: "Payment cannot exceed remaining amount.", variant: "destructive" });
         return;
       }
-      const updatedDebt = await addPaymentToDebt(user.uid, debt, paymentValue);
+      const updatedDebt = await addPaymentToDebt(user.uid, debt.id, paymentValue);
       updateLocalState(updatedDebt);
       setNewPaymentAmount('');
       toast({ title: "Payment Added", description: "The partial payment has been recorded." });
@@ -332,5 +334,3 @@ export function EditDebtDialog({
     </Dialog>
   );
 }
-
-    

@@ -83,14 +83,14 @@ export default function WalletsPage() {
     const handleDataChange = () => {
         if(user) fetchData();
     }
-    window.addEventListener('transactionsUpdated', handleDataChange);
     window.addEventListener('walletsUpdated', handleDataChange);
-    window.addEventListener('defaultWalletChanged', handleDataChange);
+    window.addEventListener('transactionsUpdated', handleDataChange);
+    window.addEventListener('storage', handleDataChange);
     
     return () => {
-      window.removeEventListener('transactionsUpdated', handleDataChange);
       window.removeEventListener('walletsUpdated', handleDataChange);
-      window.removeEventListener('defaultWalletChanged', handleDataChange);
+      window.removeEventListener('transactionsUpdated', handleDataChange);
+      window.removeEventListener('storage', handleDataChange);
     }
 
   }, [user, fetchData]);
@@ -227,13 +227,13 @@ export default function WalletsPage() {
         isOpen={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
         wallet={selectedWallet}
+        onWalletUpdated={fetchData}
       />
       <AddWalletDialog 
         isOpen={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
+        onWalletAdded={fetchData}
       />
     </>
   );
 }
-
-    

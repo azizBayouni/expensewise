@@ -33,6 +33,7 @@ import { getAllTransactions } from '@/services/transaction-service';
 import { getAllCategories } from '@/services/category-service';
 import type { Transaction, Category } from '@/lib/data';
 import { useAuth } from '@/components/auth-provider';
+import { getCategoryDepth } from '@/lib/data';
 
 export default function CategoryReportDetails() {
   const { user } = useAuth();
@@ -98,17 +99,6 @@ export default function CategoryReportDetails() {
     return { from: null, to: null };
   }, [searchParams]);
 
-  const getCategoryDepth = (categoryId: string): number => {
-    let depth = 0;
-    let current = categories.find(c => c.id === categoryId);
-    while (current?.parentId) {
-        depth++;
-        current = categories.find(c => c.id === current!.parentId);
-        if (depth > 10) break; // Safety break for circular dependencies
-    }
-    return depth;
-  };
-
   const { filteredTransactions, categoryHierarchy } = useMemo(() => {
     const decodedCategoryName = decodeURIComponent(categoryName as string);
     const topLevelCategory = categories.find(
@@ -162,7 +152,7 @@ export default function CategoryReportDetails() {
 
   const expensesBySubCategory = useMemo(() => {
     const breakdown: Record<string, { value: number; icon?: string }> = {};
-     const directSubCategories = categories.filter(c => categoryHierarchy.includes(c.id) && c.id !== categoryHierarchy[0] && getCategoryDepth(c.id) === 1);
+     const directSubCategories = categories.filter(c => categoryHierarchy.includes(c.id) && c.id !== categoryHierarchy[0] && getCategoryDepth(c.id, categories) === 1);
 
      directSubCategories.forEach(cat => {
         breakdown[cat.name] = { value: 0, icon: cat.icon };
@@ -173,7 +163,7 @@ export default function CategoryReportDetails() {
       if (!transactionCategory) return;
       
       let parentCategory = transactionCategory;
-      while(parentCategory.parentId && getCategoryDepth(parentCategory.id) > 1) {
+      while(parentCategory.parentId && getCategoryDepth(parentCategory.id, categories) > 1) {
           const parent = categories.find(c => c.id === parentCategory.parentId);
           if (!parent) break;
           parentCategory = parent;
@@ -337,13 +327,14 @@ export default function CategoryReportDetails() {
           </TabsContent>
         </Tabs>
       </div>
-      <EditTransactionDialog
-        isOpen={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        transaction={selectedTransaction}
-      />
+       {selectedTransaction && (
+        <EditTransactionDialog
+          isOpen={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          transaction={selectedTransaction}
+          onTransactionUpdated={fetchData}
+        />
+      )}
     </>
   );
 }
-
-    

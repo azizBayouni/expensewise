@@ -7,7 +7,13 @@ import { convertAmount } from './transaction-service';
 import { randomUUID } from 'crypto';
 
 export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'balance' | 'userId'>): Promise<void> {
-    const newWallet = { ...newWalletData, id: randomUUID(), userId, balance: 0, linkedCategoryIds: JSON.stringify(newWalletData.linkedCategoryIds || []) };
+    const newWallet = { 
+        ...newWalletData, 
+        id: randomUUID(), 
+        userId, 
+        balance: 0, 
+        linkedCategoryIds: JSON.stringify(newWalletData.linkedCategoryIds || []) 
+    };
     const stmt = db.prepare('INSERT INTO wallets (id, userId, name, currency, balance, icon, linkedCategoryIds) VALUES (?, ?, ?, ?, ?, ?, ?)');
     stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.currency, newWallet.balance, newWallet.icon, newWallet.linkedCategoryIds);
     if (typeof window !== 'undefined') {
@@ -50,7 +56,7 @@ export async function setDefaultWallet(userId: string, walletId: string): Promis
     const stmt = db.prepare('INSERT INTO settings (userId, defaultWalletId) VALUES (?, ?) ON CONFLICT(userId) DO UPDATE SET defaultWalletId = excluded.defaultWalletId');
     stmt.run(userId, walletId);
     if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('defaultWalletChanged'));
+        window.dispatchEvent(new Event('storage'));
     }
 }
 
@@ -64,7 +70,7 @@ export async function clearDefaultWallet(userId: string): Promise<void> {
     const stmt = db.prepare('UPDATE settings SET defaultWalletId = NULL WHERE userId = ?');
     stmt.run(userId);
     if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('defaultWalletChanged'));
+        window.dispatchEvent(new Event('storage'));
     }
 }
 

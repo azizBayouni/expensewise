@@ -43,22 +43,20 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { getCategoryDepth, getAllCategories } from '@/services/category-service';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { getExchangeRateApiKey } from '@/services/api-key-service';
+import { useAuth } from '@/components/auth-provider';
 import { getAllWallets } from '@/services/wallet-service';
 import { getAllEvents } from '@/services/event-service';
-
-const MOCK_USER_ID = 'dev-user';
 
 interface NewTransactionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onTransactionAdded: () => void;
 }
 
 export function NewTransactionDialog({
   isOpen,
   onOpenChange,
-  onTransactionAdded
 }: NewTransactionDialogProps) {
+  const { user } = useAuth();
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState<number | ''>('');
   const [originalAmount, setOriginalAmount] = useState<number | ''>('');
@@ -85,11 +83,12 @@ export function NewTransactionDialog({
     from: string,
     to: string
   ) => {
+    if (!user) return;
     if (!amountToConvert || !to || from === to) {
         setAmount(amountToConvert);
         return;
     }
-    const apiKey = await getExchangeRateApiKey(MOCK_USER_ID);
+    const apiKey = await getExchangeRateApiKey(user.uid);
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
@@ -101,7 +100,7 @@ export function NewTransactionDialog({
     }
     setIsConverting(true);
     try {
-      const converted = await convertAmountService(MOCK_USER_ID, amountToConvert, from, to);
+      const converted = await convertAmountService(user.uid, amountToConvert, from, to);
       setAmount(converted);
        if (from !== to) {
         toast({
@@ -120,16 +119,17 @@ export function NewTransactionDialog({
     } finally {
       setIsConverting(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
 
   const resetForm = useCallback(async () => {
+    if (!user) return;
     const [cats, wals, evs, defCurrency, defWalletId] = await Promise.all([
-        getAllCategories(MOCK_USER_ID),
-        getAllWallets(MOCK_USER_ID),
-        getAllEvents(MOCK_USER_ID),
-        getDefaultCurrency(MOCK_USER_ID),
-        getDefaultWallet(MOCK_USER_ID),
+        getAllCategories(user.uid),
+        getAllWallets(user.uid),
+        getAllEvents(user.uid),
+        getDefaultCurrency(user.uid),
+        getDefaultWallet(user.uid),
     ]);
     setAllCategories(cats);
     setAllWallets(wals);
@@ -159,7 +159,7 @@ export function NewTransactionDialog({
     } else {
       setTransactionCurrency(defCurrency);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (isOpen) {
@@ -188,6 +188,7 @@ export function NewTransactionDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     
     const finalAmount = amount || originalAmount;
 
@@ -200,8 +201,7 @@ export function NewTransactionDialog({
         return;
     }
 
-    const newTransaction: Omit<Transaction, 'id'> = {
-        userId: MOCK_USER_ID,
+    const newTransaction: Omit<Transaction, 'id' | 'userId'> = {
         amount: Number(finalAmount),
         type,
         description,
@@ -214,14 +214,13 @@ export function NewTransactionDialog({
         excludeFromReport: excludeFromReport,
     };
 
-    await addTransaction(MOCK_USER_ID, newTransaction, attachments);
+    await addTransaction(user.uid, newTransaction, attachments);
 
     toast({
       title: 'Transaction Saved',
       description: 'Your new transaction has been successfully recorded.',
     });
 
-    onTransactionAdded();
     onOpenChange(false);
   };
 
@@ -265,7 +264,7 @@ export function NewTransactionDialog({
   }, [wallet, allCategories]);
 
   const renderCategoryOptions = () => {
-    const categoriesWithDepth = selectableCategories.map(c => ({...c, depth: getCategoryDepth(c.id, selectableCategories)}));
+    const categoriesWithDepth = selectableCategories.map(c => ({...c, depth: getCategoryDepth(c.id, allCategories)}));
     const sortedCategories = categoriesWithDepth.sort((a,b) => {
         if(a.depth < b.depth) return -1;
         if(a.depth > b.depth) return 1;

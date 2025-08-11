@@ -324,10 +324,9 @@ export default function Dashboard() {
             isOpen={isEditDialogOpen} 
             onOpenChange={setIsEditDialogOpen} 
             transaction={selectedTransaction}
+            onTransactionUpdated={fetchData}
         />
       )}
     </>
   );
 }
-
-    
