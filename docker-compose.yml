@@ -2,7 +2,7 @@ services:
   app:
     build: .
     ports:
-      - '3000:3000'
+      - '3001:3000'
     environment:
       - NODE_ENV=development
       # This tells the app to connect to the emulators using the service name.
