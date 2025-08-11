@@ -2,7 +2,6 @@
 'use server';
 
 import db from '@/lib/db';
-import { Stmt } from 'better-sqlite3';
 
 export async function getExchangeRateApiKey(userId: string): Promise<string | null> {
   if (!userId) return null;

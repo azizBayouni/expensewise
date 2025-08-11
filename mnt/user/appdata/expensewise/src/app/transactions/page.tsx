@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { PlusCircle, Paperclip, Calendar as CalendarIcon } from 'lucide-react';
-import { NewTransactionDialog } from '@/components/new-transaction-dialog';
+import { NewTransactionDialog } from '../new-transaction-dialog';
 import { EditTransactionDialog } from '@/components/edit-transaction-dialog';
 import { getDefaultCurrency } from '@/services/settings-service';
 import { MultiSelect } from '@/components/ui/multi-select';
@@ -41,10 +41,10 @@ import { getAllWallets } from '@/services/wallet-service';
 import { getAllEvents } from '@/services/event-service';
 import type { Transaction, Category, Wallet, Event } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-
-const MOCK_USER_ID = 'dev-user';
+import { useAuth } from '@/components/auth-provider';
 
 export default function TransactionsPage() {
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -61,14 +61,15 @@ export default function TransactionsPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setIsLoading(true);
     try {
         const [trans, cats, wals, evs, currency] = await Promise.all([
-            getAllTransactions(MOCK_USER_ID),
-            getAllCategories(MOCK_USER_ID),
-            getAllWallets(MOCK_USER_ID),
-            getAllEvents(MOCK_USER_ID),
-            getDefaultCurrency(MOCK_USER_ID),
+            getAllTransactions(user.uid),
+            getAllCategories(user.uid),
+            getAllWallets(user.uid),
+            getAllEvents(user.uid),
+            getDefaultCurrency(user.uid),
         ]);
         setTransactions(trans);
         setCategories(cats);
@@ -80,12 +81,14 @@ export default function TransactionsPage() {
     } finally {
         setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    fetchData();
-     const handleDataChange = () => {
+    if (user) {
         fetchData();
+    }
+     const handleDataChange = () => {
+        if(user) fetchData();
     };
     window.addEventListener('transactionsUpdated', handleDataChange);
     window.addEventListener('storage', handleDataChange); // For categories/wallets etc.
@@ -93,7 +96,7 @@ export default function TransactionsPage() {
         window.removeEventListener('transactionsUpdated', handleDataChange);
         window.removeEventListener('storage', handleDataChange);
     };
-  }, [fetchData]);
+  }, [user, fetchData]);
 
   const handleRowClick = (transaction: Transaction) => {
     setSelectedTransaction(transaction);

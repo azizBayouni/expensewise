@@ -136,7 +136,7 @@ export function NewTransactionDialog({
     setAllEvents(evs);
     setDefaultCurrency(defCurrency);
 
-    const travelMode = getTravelMode(MOCK_USER_ID);
+    const travelMode = getTravelMode();
     setIsTravelMode(travelMode.isActive);
     
     setType('expense');
@@ -485,5 +485,3 @@ export function NewTransactionDialog({
     </Dialog>
   );
 }
-
-    

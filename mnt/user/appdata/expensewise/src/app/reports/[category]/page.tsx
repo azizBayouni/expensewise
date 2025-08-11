@@ -32,10 +32,10 @@ import { EditTransactionDialog } from '@/components/edit-transaction-dialog';
 import { getAllTransactions } from '@/services/transaction-service';
 import { getAllCategories } from '@/services/category-service';
 import type { Transaction, Category } from '@/lib/data';
-
-const MOCK_USER_ID = 'dev-user';
+import { useAuth } from '@/components/auth-provider';
 
 export default function CategoryReportDetails() {
+  const { user } = useAuth();
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -50,12 +50,13 @@ export default function CategoryReportDetails() {
   const [categories, setCategories] = useState<Category[]>([]);
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setIsLoading(true);
     try {
         const [trans, cats, currency] = await Promise.all([
-            getAllTransactions(MOCK_USER_ID),
-            getAllCategories(MOCK_USER_ID),
-            getDefaultCurrency(MOCK_USER_ID),
+            getAllTransactions(user.uid),
+            getAllCategories(user.uid),
+            getDefaultCurrency(user.uid),
         ]);
         setTransactions(trans);
         setCategories(cats);
@@ -65,11 +66,22 @@ export default function CategoryReportDetails() {
     } finally {
         setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (user) {
+        fetchData();
+    }
+     const handleDataChange = () => {
+        if (user) fetchData();
+    };
+    window.addEventListener('storage', handleDataChange);
+    window.addEventListener('transactionsUpdated', handleDataChange);
+    return () => {
+        window.removeEventListener('storage', handleDataChange);
+        window.removeEventListener('transactionsUpdated', handleDataChange);
+    }
+  }, [user, fetchData]);
 
   const { category: categoryName } = params;
 

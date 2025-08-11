@@ -21,6 +21,7 @@ export async function addDebt(userId: string, newDebtData: Omit<Debt, 'id' | 'st
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(newDebt.id, userId, newDebt.type, newDebt.person, newDebt.amount, newDebt.currency, newDebt.dueDate, newDebt.status, newDebt.note, JSON.stringify(newDebt.payments));
+    window.dispatchEvent(new Event('debtsUpdated'));
 }
 
 export async function getAllDebts(userId: string): Promise<Debt[]> {
@@ -40,18 +41,16 @@ export async function updateDebt(userId: string, updatedDebt: Debt): Promise<voi
     WHERE id = ? AND userId = ?
   `);
   stmt.run(debtData.type, debtData.person, debtData.amount, debtData.currency, debtData.dueDate, debtData.status, debtData.note, JSON.stringify(debtData.payments), id, userId);
+  window.dispatchEvent(new Event('debtsUpdated'));
 }
 
 export async function deleteDebt(userId: string, debtId: string): Promise<void> {
     const stmt = db.prepare('DELETE FROM debts WHERE id = ? AND userId = ?');
     stmt.run(debtId, userId);
+    window.dispatchEvent(new Event('debtsUpdated'));
 }
 
-export async function addPaymentToDebt(userId: string, debtId: string, paymentAmount: number): Promise<void> {
-    const debt = db.prepare('SELECT * FROM debts WHERE id = ?').get(debtId) as any;
-    if (!debt) return;
-
-    debt.payments = JSON.parse(debt.payments || '[]');
+export async function addPaymentToDebt(userId: string, debt: Debt, paymentAmount: number): Promise<Debt> {
     
     const newPayment: Payment = {
         id: 'p' + (Math.random() * 1e9).toString(36),
@@ -68,9 +67,15 @@ export async function addPaymentToDebt(userId: string, debtId: string, paymentAm
     } else if (totalPaid > 0) {
         newStatus = 'partial';
     }
+    
+    const updatedDebt = {
+        ...debt,
+        payments: updatedPayments,
+        status: newStatus
+    }
 
-    const stmt = db.prepare('UPDATE debts SET payments = ?, status = ? WHERE id = ?');
-    stmt.run(JSON.stringify(updatedPayments), newStatus, debtId);
+    await updateDebt(userId, updatedDebt);
+    return updatedDebt;
 }
 
 export async function convertAllDebts(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
@@ -96,4 +101,7 @@ export async function convertAllDebts(userId: string, fromCurrency: string, toCu
     });
 
     updateTransaction(allDebts);
+    window.dispatchEvent(new Event('debtsUpdated'));
 }
+
+    

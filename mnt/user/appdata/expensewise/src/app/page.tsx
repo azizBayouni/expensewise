@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { DollarSign, Wallet, TrendingUp, TrendingDown, PlusCircle } from 'lucide-react';
 import { Overview } from '@/components/overview';
 import { Button } from '@/components/ui/button';
-import { NewTransactionDialog } from '@/components/new-transaction-dialog';
+import { NewTransactionDialog } from '@/app/new-transaction-dialog';
 import { getDefaultCurrency } from '@/services/settings-service';
 import { MonthlyReportCard } from '@/components/monthly-report-card';
 import { TrendingReportCard } from '@/components/trending-report-card';
@@ -35,10 +35,10 @@ import { getAllDebts } from '@/services/debt-service';
 import { getWalletBalance } from '@/lib/data';
 import type { Transaction, Wallet as WalletType, Debt } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-
-const MOCK_USER_ID = 'dev-user';
+import { useAuth } from '@/components/auth-provider';
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -51,13 +51,14 @@ export default function Dashboard() {
   const [debts, setDebts] = useState<Debt[]>([]);
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setIsLoading(true);
     try {
         const [trans, wals, dts, currency] = await Promise.all([
-            getAllTransactions(MOCK_USER_ID),
-            getAllWallets(MOCK_USER_ID),
-            getAllDebts(MOCK_USER_ID),
-            getDefaultCurrency(MOCK_USER_ID),
+            getAllTransactions(user.uid),
+            getAllWallets(user.uid),
+            getAllDebts(user.uid),
+            getDefaultCurrency(user.uid),
         ]);
         setTransactions(trans);
         setWallets(wals);
@@ -68,14 +69,18 @@ export default function Dashboard() {
     } finally {
         setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (user) {
+      fetchData();
+    }
+  }, [user, fetchData]);
   
   useEffect(() => {
-    const handleDataChange = () => fetchData();
+    const handleDataChange = () => {
+        if (user) fetchData();
+    };
     window.addEventListener('transactionsUpdated', handleDataChange);
     window.addEventListener('walletsUpdated', handleDataChange);
     window.addEventListener('debtsUpdated', handleDataChange);
@@ -87,7 +92,7 @@ export default function Dashboard() {
         window.removeEventListener('debtsUpdated', handleDataChange);
         window.removeEventListener('storage', handleDataChange);
     };
-  }, [fetchData]);
+  }, [fetchData, user]);
 
 
   const dashboardData = useMemo(() => {
@@ -312,15 +317,13 @@ export default function Dashboard() {
       </div>
       <NewTransactionDialog 
         isOpen={isAddDialogOpen} 
-        onOpenChange={setIsAddDialogOpen} 
-        onTransactionAdded={fetchData} 
+        onOpenChange={setIsAddDialogOpen}
       />
       {selectedTransaction && (
         <EditTransactionDialog 
             isOpen={isEditDialogOpen} 
             onOpenChange={setIsEditDialogOpen} 
             transaction={selectedTransaction}
-            onTransactionUpdated={fetchData}
         />
       )}
     </>
