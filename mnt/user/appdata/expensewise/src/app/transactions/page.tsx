@@ -127,7 +127,7 @@ export default function TransactionsPage() {
     });
   }, [searchQuery, selectedCategories, walletFilter, dateRange, transactions]);
 
-  const categoryOptions = categories.map(c => ({ value: c.name, label: c.name }));
+  const categoryOptions = categories.map(c => ({ value: c.id, label: c.name }));
   const getEventName = (eventId?: string) => {
     if (!eventId) return '-';
     return events.find(e => e.id === eventId)?.name || '-';
@@ -201,6 +201,7 @@ export default function TransactionsPage() {
                   onChange={setSelectedCategories}
                   className="w-full"
                   placeholder="Filter by category"
+                  allCategories={categories}
                 />
                 <Select value={walletFilter} onValueChange={setWalletFilter}>
                   <SelectTrigger className="w-full">
@@ -285,7 +286,7 @@ export default function TransactionsPage() {
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">{transaction.wallet}</TableCell>
                     <TableCell className="hidden lg:table-cell">{getEventName(transaction.eventId)}</TableCell>
-                    <TableCell className={`text-right font-medium ${transaction.type === 'income' ? 'text-accent' : ''}`}>
+                    <TableCell className={`text-right font-medium ${transaction.type === 'income' ? 'text-accent' : 'text-destructive'}`}>
                       {transaction.type === 'income' ? '+' : ''}{formatCurrency(transaction.amount, transaction.currency)}
                     </TableCell>
                   </TableRow>

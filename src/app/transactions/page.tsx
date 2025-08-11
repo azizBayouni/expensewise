@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -37,7 +38,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth-provider';
 import { getAllTransactions } from '@/services/transaction-service';
-import { getAllCategories } from '@/services/category-service';
+import { getAllCategories, getCategoryDepth } from '@/services/category-service';
 import { getAllWallets } from '@/services/wallet-service';
 import { getAllEvents } from '@/services/event-service';
 import type { Transaction, Category, Wallet, Event } from '@/lib/data';
@@ -126,7 +127,15 @@ export default function TransactionsPage() {
     });
   }, [searchQuery, selectedCategories, walletFilter, dateRange, transactions]);
 
-  const categoryOptions = categories.map(c => ({ value: c.name, label: c.name }));
+  const categoryOptions = useMemo(() => {
+    const sorted = [...categories].sort((a,b) => a.name.localeCompare(b.name));
+    return sorted.map(c => ({ 
+        value: c.name, 
+        label: c.name,
+        depth: getCategoryDepth(c.id, categories)
+    }));
+  }, [categories]);
+
   const getEventName = (eventId?: string) => {
     if (!eventId) return '-';
     return events.find(e => e.id === eventId)?.name || '-';
@@ -200,6 +209,7 @@ export default function TransactionsPage() {
                   onChange={setSelectedCategories}
                   className="w-full"
                   placeholder="Filter by category"
+                  allCategories={categories}
                 />
                 <Select value={walletFilter} onValueChange={setWalletFilter}>
                   <SelectTrigger className="w-full">
@@ -284,7 +294,7 @@ export default function TransactionsPage() {
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">{transaction.wallet}</TableCell>
                     <TableCell className="hidden lg:table-cell">{getEventName(transaction.eventId)}</TableCell>
-                    <TableCell className={`text-right font-medium ${transaction.type === 'income' ? 'text-accent' : ''}`}>
+                    <TableCell className={`text-right font-medium ${transaction.type === 'income' ? 'text-accent' : 'text-destructive'}`}>
                       {transaction.type === 'income' ? '+' : ''}{formatCurrency(transaction.amount, transaction.currency)}
                     </TableCell>
                   </TableRow>
@@ -310,5 +320,3 @@ export default function TransactionsPage() {
     </>
   );
 }
-
-    

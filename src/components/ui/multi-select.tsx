@@ -21,8 +21,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-import { categories as allCategories } from '@/lib/data';
 import { Separator } from './separator';
+import type { Category } from '@/lib/data';
 
 export type MultiSelectOption = {
   value: string;
@@ -33,9 +33,11 @@ export type MultiSelectOption = {
 interface MultiSelectProps {
   options: MultiSelectOption[];
   selected: string[];
-  onChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onChange: (selected: string[]) => void;
   className?: string;
   placeholder?: string;
+  // Pass all categories to handle hierarchy logic internally
+  allCategories?: Category[]; 
 }
 
 export function MultiSelect({
@@ -44,24 +46,40 @@ export function MultiSelect({
   onChange,
   className,
   placeholder = 'Select...',
+  allCategories = [],
   ...props
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
-  const selectedOptions = options.filter(o => selected.includes(o.value));
 
   const handleUnselect = (item: string) => {
     onChange(selected.filter((i) => i !== item));
   };
-  
-  const handleSelect = (categoryId: string) => {
+
+  const handleSelect = (optionValue: string) => {
+    // If allCategories is not provided, do a simple toggle.
+    if (allCategories.length === 0) {
+        const newSelected = selected.includes(optionValue)
+            ? selected.filter((item) => item !== optionValue)
+            : [...selected, optionValue];
+        onChange(newSelected);
+        return;
+    }
+    
+    // Logic to handle category hierarchy selection
+    const category = allCategories.find(c => c.name === optionValue);
+    if (!category) return;
+    
     const getDescendants = (id: string): string[] => {
-      const children = allCategories.filter(c => c.parentId === id);
-      return [id, ...children.flatMap(c => getDescendants(c.id))];
+        const children = allCategories.filter(c => c.parentId === id);
+        return [
+            allCategories.find(c => c.id === id)!.name, 
+            ...children.flatMap(c => getDescendants(c.id))
+        ];
     };
 
-    const descendants = getDescendants(categoryId);
-    const isSelected = selected.includes(categoryId);
-
+    const descendants = getDescendants(category.id);
+    const isSelected = selected.includes(category.name);
+    
     if (isSelected) {
       // Deselect the category and all its descendants
       onChange(selected.filter(s => !descendants.includes(s)));
@@ -72,16 +90,8 @@ export function MultiSelect({
     }
   };
 
-  const allSelected = options.length > 0 && options.length === selected.length;
 
-  const handleToggleAll = () => {
-    if (allSelected) {
-      onChange([]);
-    } else {
-      onChange(options.map((option) => option.value));
-    }
-  };
-
+  const selectedOptions = options.filter(o => selected.includes(o.label));
 
   return (
     <Popover open={open} onOpenChange={setOpen} {...props}>
@@ -102,7 +112,7 @@ export function MultiSelect({
                         className="mr-1"
                         onClick={(e) => {
                             e.stopPropagation();
-                            handleUnselect(option.value);
+                            handleUnselect(option.label);
                         }}
                     >
                         {option.label}
@@ -122,27 +132,10 @@ export function MultiSelect({
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-                <CommandItem
-                    onSelect={handleToggleAll}
-                    className="text-sm font-medium"
-                >
-                    <div
-                        className={cn(
-                        'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
-                        allSelected
-                            ? 'bg-primary text-primary-foreground'
-                            : 'opacity-50 [&_svg]:invisible'
-                        )}
-                    >
-                        <Check className="h-4 w-4" />
-                    </div>
-                    <span>{allSelected ? 'Deselect All' : 'Select All'}</span>
-                </CommandItem>
-                <Separator className="my-1" />
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  onSelect={() => handleSelect(option.value)}
+                  onSelect={() => handleSelect(option.label)}
                   className={cn(
                     option.depth === 0 ? 'font-bold' : '',
                     option.depth === 1 ? 'pl-6' : '',
@@ -152,7 +145,7 @@ export function MultiSelect({
                   <div
                     className={cn(
                       'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
-                      selected.includes(option.value)
+                      selected.includes(option.label)
                         ? 'bg-primary text-primary-foreground'
                         : 'opacity-50 [&_svg]:invisible'
                     )}

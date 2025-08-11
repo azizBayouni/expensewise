@@ -26,14 +26,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { emojiIcons, type Wallet, currencies, categories, type Category } from '@/lib/data';
+import { emojiIcons, type Wallet, currencies, type Category } from '@/lib/data';
 import { updateWallet } from '@/services/wallet-service';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { MultiSelect, type MultiSelectOption } from './ui/multi-select';
 import { ScrollArea } from './ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { getCategoryDepth } from '@/services/category-service';
+import { getCategoryDepth, getAllCategories } from '@/services/category-service';
+import { useAuth } from './auth-provider';
 
 interface EditWalletDialogProps {
   isOpen: boolean;
@@ -46,27 +47,38 @@ export function EditWalletDialog({
   onOpenChange,
   wallet,
 }: EditWalletDialogProps) {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState<string | undefined>(undefined);
   const [currency, setCurrency] = useState('');
   const [linkedCategoryIds, setLinkedCategoryIds] = useState<string[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState('');
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
   const { toast } = useToast();
 
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    const cats = await getAllCategories(user.uid);
+    setAllCategories(cats);
+  }, [user]);
+
   useEffect(() => {
-    if (wallet) {
-      setName(wallet.name);
-      setIcon(wallet.icon);
-      setCurrency(wallet.currency);
-      setLinkedCategoryIds(wallet.linkedCategoryIds || []);
+    if (isOpen) {
+        fetchData();
+        if (wallet) {
+          setName(wallet.name);
+          setIcon(wallet.icon);
+          setCurrency(wallet.currency);
+          setLinkedCategoryIds(wallet.linkedCategoryIds || []);
+        }
+        setIconSearch('');
     }
-    setIconSearch('');
-  }, [wallet, isOpen]);
+  }, [wallet, isOpen, fetchData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (wallet) {
+    if (wallet && user) {
       const updatedWallet: Wallet = {
         ...wallet,
         name,
@@ -74,7 +86,7 @@ export function EditWalletDialog({
         currency,
         linkedCategoryIds,
       };
-      updateWallet(updatedWallet);
+      updateWallet(user.uid, updatedWallet);
       toast({
           title: "Wallet Updated",
           description: `The wallet "${name}" has been saved.`,
@@ -84,12 +96,12 @@ export function EditWalletDialog({
   };
   
   const categoryOptions = useMemo(() => {
-     return categories.map(c => ({
+     return allCategories.map(c => ({
         label: c.name,
         value: c.id,
-        depth: getCategoryDepth(c.id)
+        depth: getCategoryDepth(c.id, allCategories)
      }));
-  }, []);
+  }, [allCategories]);
 
   const filteredIcons = useMemo(() => {
     if (!iconSearch) return emojiIcons;
