@@ -1,24 +1,29 @@
 
-import { firestore } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+'use server';
 
-const settingsDoc = (userId: string) => doc(firestore, 'users', userId, 'settings', 'main');
+import db from '../lib/db';
 
 export async function getDefaultCurrency(userId: string): Promise<string> {
   try {
-    const docSnap = await getDoc(settingsDoc(userId));
-    if (docSnap.exists() && docSnap.data().defaultCurrency) {
-      return docSnap.data().defaultCurrency;
-    }
+    const stmt = db.prepare('SELECT defaultCurrency FROM settings WHERE userId = ?');
+    const result = stmt.get(userId) as { defaultCurrency: string } | undefined;
+    return result?.defaultCurrency || 'USD';
   } catch (error) {
     console.error("Error fetching default currency:", error);
+    return 'USD'; // Fallback
   }
-  return 'USD'; // Fallback
 }
 
 export async function setDefaultCurrency(userId: string, currency: string): Promise<void> {
   try {
-    await setDoc(settingsDoc(userId), { defaultCurrency: currency }, { merge: true });
+    const stmt = db.prepare(`
+        INSERT INTO settings (userId, defaultCurrency) 
+        VALUES (?, ?)
+        ON CONFLICT(userId) 
+        DO UPDATE SET defaultCurrency = excluded.defaultCurrency;
+    `);
+    stmt.run(userId, currency);
+    window.dispatchEvent(new Event('storage'));
   } catch (error) {
     console.error("Error setting default currency:", error);
   }

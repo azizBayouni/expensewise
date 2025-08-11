@@ -1,43 +1,37 @@
 
-import { firestore } from '@/lib/firebase';
-import {
-  collection,
-  addDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  doc,
-  query,
-} from 'firebase/firestore';
-import type { Event } from '@/lib/data';
+'use server';
 
-const eventsCollection = (userId: string) => collection(firestore, 'users', userId, 'events');
+import db from '../lib/db';
+import type { Event } from '../lib/data';
+import { randomUUID } from 'crypto';
+
 
 export async function addEvent(userId: string, newEventData: Omit<Event, 'id' | 'status' | 'userId'>): Promise<void> {
-    const newEvent: Omit<Event, 'id'> = {
+    const newEvent: Event = {
         ...newEventData,
+        id: randomUUID(),
         userId,
         status: 'active',
     };
-    await addDoc(eventsCollection(userId), newEvent);
+    const stmt = db.prepare('INSERT INTO events (id, userId, name, icon, status) VALUES (?, ?, ?, ?, ?)');
+    stmt.run(newEvent.id, userId, newEvent.name, newEvent.icon, newEvent.status);
     window.dispatchEvent(new Event('eventsUpdated'));
 }
 
 export async function getAllEvents(userId: string): Promise<Event[]> {
-    const q = query(eventsCollection(userId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
+    const stmt = db.prepare('SELECT * FROM events WHERE userId = ?');
+    return stmt.all(userId) as Event[];
 }
 
 export async function updateEvent(userId: string, updatedEvent: Event): Promise<void> {
   const { id, ...eventData } = updatedEvent;
-  const docRef = doc(firestore, 'users', userId, 'events', id);
-  await updateDoc(docRef, eventData);
+  const stmt = db.prepare('UPDATE events SET name = ?, icon = ?, status = ? WHERE id = ? AND userId = ?');
+  stmt.run(eventData.name, eventData.icon, eventData.status, id, userId);
   window.dispatchEvent(new Event('eventsUpdated'));
 }
 
 export async function deleteEvent(userId: string, eventId: string): Promise<void> {
-    const docRef = doc(firestore, 'users', userId, 'events', eventId);
-    await deleteDoc(docRef);
+    const stmt = db.prepare('DELETE FROM events WHERE id = ? AND userId = ?');
+    stmt.run(eventId, userId);
     window.dispatchEvent(new Event('eventsUpdated'));
 }

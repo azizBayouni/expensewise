@@ -11,7 +11,7 @@ export async function getAllCategories(userId: string): Promise<Category[]> {
     return categories;
 }
 
-export async function getCategoryDepth(categoryId: string | null, allCategories: Category[]): Promise<number> {
+export function getCategoryDepth(categoryId: string | null, allCategories: Category[]): number {
     if (!categoryId) return 0;
     let depth = 0;
     let current = allCategories.find(c => c.id === categoryId);
@@ -27,13 +27,15 @@ export async function updateCategory(userId: string, updatedCategory: Category):
     const { id, name, type, parentId, icon } = updatedCategory;
     const stmt = db.prepare('UPDATE categories SET name = ?, type = ?, parentId = ?, icon = ? WHERE id = ? AND userId = ?');
     stmt.run(name, type, parentId, icon, id, userId);
-    window.dispatchEvent(new Event('categoriesUpdated'));
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('categoriesUpdated'));
+    }
 }
 
 export async function addCategory(userId: string, newCategoryData: Omit<Category, 'id' | 'userId'>): Promise<void> {
     const allCategories = await getAllCategories(userId);
     if (newCategoryData.parentId) {
-        const parentDepth = await getCategoryDepth(newCategoryData.parentId, allCategories);
+        const parentDepth = getCategoryDepth(newCategoryData.parentId, allCategories);
         if (parentDepth >= 2) {
             throw new Error("Cannot add a category beyond 3 levels deep.");
         }
@@ -47,7 +49,9 @@ export async function addCategory(userId: string, newCategoryData: Omit<Category
 
     const stmt = db.prepare('INSERT INTO categories (id, userId, name, type, parentId, icon) VALUES (?, ?, ?, ?, ?, ?)');
     stmt.run(newCategory.id, newCategory.userId, newCategory.name, newCategory.type, newCategory.parentId, newCategory.icon);
-    window.dispatchEvent(new Event('categoriesUpdated'));
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('categoriesUpdated'));
+    }
 }
 
 export async function deleteCategory(userId: string, categoryId: string): Promise<void> {
@@ -83,7 +87,9 @@ export async function deleteCategory(userId: string, categoryId: string): Promis
         for (const id of ids) deleteStmt.run(id, userId);
     });
     deleteTransaction(allIdsToDelete);
-    window.dispatchEvent(new Event('categoriesUpdated'));
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('categoriesUpdated'));
+    }
 }
 
 export async function deleteAllCategories(userId: string): Promise<void> {
@@ -96,5 +102,7 @@ export async function deleteAllCategories(userId: string): Promise<void> {
 
     const stmt = db.prepare('DELETE FROM categories WHERE userId = ?');
     stmt.run(userId);
-    window.dispatchEvent(new Event('categoriesUpdated'));
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('categoriesUpdated'));
+    }
 }

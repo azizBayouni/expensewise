@@ -1,26 +1,14 @@
 
-import { firestore } from '@/lib/firebase';
-import {
-  collection,
-  doc,
-  addDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  writeBatch,
-  getDoc
-} from 'firebase/firestore';
-import { getAllTransactions } from './transaction-service';
-import type { Category } from '@/lib/data';
+'use server';
 
-const categoriesCollection = (userId: string) => collection(firestore, 'users', userId, 'categories');
+import db from '../lib/db';
+import type { Category } from '../lib/data';
+import { randomUUID } from 'crypto';
 
 export async function getAllCategories(userId: string): Promise<Category[]> {
-    const q = query(categoriesCollection(userId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+    const stmt = db.prepare('SELECT * FROM categories WHERE userId = ?');
+    const categories = stmt.all(userId) as Category[];
+    return categories;
 }
 
 export async function getCategoryDepth(categoryId: string | null, allCategories: Category[]): Promise<number> {
@@ -36,26 +24,9 @@ export async function getCategoryDepth(categoryId: string | null, allCategories:
 }
 
 export async function updateCategory(userId: string, updatedCategory: Category): Promise<void> {
-    const { id, ...categoryData } = updatedCategory;
-    const docRef = doc(firestore, 'users', userId, 'categories', id);
-    
-    const oldDocSnap = await getDoc(docRef);
-    const oldName = oldDocSnap.data()?.name;
-
-    await updateDoc(docRef, categoryData);
-    
-    // Update transactions if category name changed
-    if (oldName && oldName !== updatedCategory.name) {
-        const transactions = await getAllTransactions(userId);
-        const batch = writeBatch(firestore);
-        transactions.forEach(t => {
-            if (t.category === oldName) {
-                const transactionRef = doc(firestore, 'users', userId, 'transactions', t.id);
-                batch.update(transactionRef, { category: updatedCategory.name });
-            }
-        });
-        await batch.commit();
-    }
+    const { id, name, type, parentId, icon } = updatedCategory;
+    const stmt = db.prepare('UPDATE categories SET name = ?, type = ?, parentId = ?, icon = ? WHERE id = ? AND userId = ?');
+    stmt.run(name, type, parentId, icon, id, userId);
     window.dispatchEvent(new Event('categoriesUpdated'));
 }
 
@@ -68,12 +39,14 @@ export async function addCategory(userId: string, newCategoryData: Omit<Category
         }
     }
     
-    const newCategory: Omit<Category, 'id'> = {
+    const newCategory: Category = {
         ...newCategoryData,
+        id: randomUUID(),
         userId
     };
 
-    await addDoc(categoriesCollection(userId), newCategory);
+    const stmt = db.prepare('INSERT INTO categories (id, userId, name, type, parentId, icon) VALUES (?, ?, ?, ?, ?, ?)');
+    stmt.run(newCategory.id, newCategory.userId, newCategory.name, newCategory.type, newCategory.parentId, newCategory.icon);
     window.dispatchEvent(new Event('categoriesUpdated'));
 }
 
@@ -96,34 +69,32 @@ export async function deleteCategory(userId: string, categoryId: string): Promis
     
     const namesToDelete = allCategories.filter(c => allIdsToDelete.includes(c.id)).map(c => c.name);
 
-    const transactions = await getAllTransactions(userId);
-    const hasTransactions = transactions.some(t => namesToDelete.includes(t.category));
+    // Check for associated transactions
+    const placeholders = namesToDelete.map(() => '?').join(',');
+    const checkStmt = db.prepare(`SELECT 1 FROM transactions WHERE userId = ? AND category IN (${placeholders}) LIMIT 1`);
+    const hasTransactions = checkStmt.get(userId, ...namesToDelete);
+
     if (hasTransactions) {
         throw new Error("Cannot delete a category that has associated transactions. Please re-assign them first.");
     }
-
-    const batch = writeBatch(firestore);
-    allIdsToDelete.forEach(id => {
-        const docRef = doc(firestore, 'users', userId, 'categories', id);
-        batch.delete(docRef);
-    });
-    await batch.commit();
     
+    const deleteStmt = db.prepare('DELETE FROM categories WHERE id = ? AND userId = ?');
+    const deleteTransaction = db.transaction((ids) => {
+        for (const id of ids) deleteStmt.run(id, userId);
+    });
+    deleteTransaction(allIdsToDelete);
     window.dispatchEvent(new Event('categoriesUpdated'));
 }
 
 export async function deleteAllCategories(userId: string): Promise<void> {
-    const transactions = await getAllTransactions(userId);
-    if (transactions.length > 0) {
+    const checkStmt = db.prepare('SELECT 1 FROM transactions WHERE userId = ? LIMIT 1');
+    const hasTransactions = checkStmt.get(userId);
+
+    if (hasTransactions) {
         throw new Error("Cannot delete categories because transactions exist. Please delete all transactions first.");
     }
 
-    const allCategories = await getAllCategories(userId);
-    const batch = writeBatch(firestore);
-    allCategories.forEach(c => {
-        const docRef = doc(firestore, 'users', userId, 'categories', c.id);
-        batch.delete(docRef);
-    });
-    await batch.commit();
+    const stmt = db.prepare('DELETE FROM categories WHERE userId = ?');
+    stmt.run(userId);
     window.dispatchEvent(new Event('categoriesUpdated'));
 }

@@ -1,7 +1,7 @@
 
 'use server';
 
-import db from '@/lib/db';
+import db from '../lib/db';
 
 type User = {
     uid: string;
