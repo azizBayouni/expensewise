@@ -11,13 +11,13 @@ services:
       - firebase-emulators
 
   firebase-emulators:
-    image: us-docker.pkg.dev/firebase-emulators/public/emulators:latest
+    image: mtlynch/firebase-emulator:latest
     ports:
       - '4000:4000' # UI
       - '8080:8080' # Firestore
       - '9099:9099' # Auth
       - '9199:9199' # Storage
     command: >
-      emulators:start --only auth,firestore,storage --import /app/seed_data --export-on-exit /app/seed_data
+      /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
     volumes:
       - ./seed_data:/app/seed_data
