@@ -10,25 +10,52 @@ import {
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { MonthlyReportChart } from './monthly-report-chart';
-import { useState, useEffect, useMemo } from 'react';
-import { transactions as allTransactions, Transaction } from '@/lib/data';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import type { Transaction } from '@/lib/data';
 import { isThisMonth, parseISO } from 'date-fns';
 import { getDefaultCurrency } from '@/services/settings-service';
+import { getAllTransactions } from '@/services/transaction-service';
+import { useAuth } from './auth-provider';
+import { Skeleton } from './ui/skeleton';
 
 export function MonthlyReportCard() {
-    const [transactions, setTransactions] = useState(allTransactions);
+    const { user } = useAuth();
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [defaultCurrency, setDefaultCurrency] = useState('USD');
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchData = useCallback(async () => {
+        if (!user) return;
+        setIsLoading(true);
+        try {
+            const [trans, currency] = await Promise.all([
+                getAllTransactions(user.uid),
+                getDefaultCurrency(user.uid),
+            ]);
+            setTransactions(trans);
+            setDefaultCurrency(currency);
+        } catch (error) {
+            console.error("Error fetching monthly report data:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [user]);
 
     useEffect(() => {
-        setDefaultCurrency(getDefaultCurrency());
+        if(user) {
+            fetchData();
+        }
+    }, [user, fetchData]);
 
-        const handleDataChange = () => {
-            setTransactions([...allTransactions]);
-        };
-
+    useEffect(() => {
+        const handleDataChange = () => fetchData();
         window.addEventListener('transactionsUpdated', handleDataChange);
-        return () => window.removeEventListener('transactionsUpdated', handleDataChange);
-    }, []);
+        window.addEventListener('storage', handleDataChange);
+        return () => {
+            window.removeEventListener('transactionsUpdated', handleDataChange);
+            window.removeEventListener('storage', handleDataChange);
+        };
+    }, [fetchData]);
 
     const monthlyData = useMemo(() => {
         const reportableTransactions = transactions.filter(t => !t.excludeFromReport);
@@ -49,12 +76,30 @@ export function MonthlyReportCard() {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: defaultCurrency }).format(amount);
     }
 
+    if (isLoading) {
+        return (
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-3/4" />
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                    </div>
+                    <Separator className="my-4" />
+                    <Skeleton className="h-48 w-full" />
+                </CardContent>
+            </Card>
+        );
+    }
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-medium">Report this month</CardTitle>
-          <Link href="/reports" className="text-sm font-medium text-accent hover:underline">
+          <Link href="/reports" className="text-sm font-medium text-primary hover:underline">
             See reports
           </Link>
         </div>

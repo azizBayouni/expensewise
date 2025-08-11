@@ -3,11 +3,14 @@
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { ChartTooltipContent, ChartContainer, ChartConfig } from '@/components/ui/chart';
-import { useMemo, useState, useEffect } from 'react';
-import { transactions as allTransactions } from '@/lib/data';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import type { Transaction } from '@/lib/data';
 import { subMonths, format, startOfMonth, endOfMonth, parseISO, isWithinInterval, startOfYear, eachMonthOfInterval, endOfYear } from 'date-fns';
 import { getDefaultCurrency } from '@/services/settings-service';
 import { useRouter } from 'next/navigation';
+import { useAuth } from './auth-provider';
+import { getAllTransactions } from '@/services/transaction-service';
+import { Skeleton } from './ui/skeleton';
 
 const chartConfig = {
   income: {
@@ -25,18 +28,45 @@ type OverviewProps = {
 }
 
 export function Overview({ timespan }: OverviewProps) {
-  const [transactions, setTransactions] = useState(allTransactions);
+  const { user } = useAuth();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [defaultCurrency, setDefaultCurrency] = useState('USD');
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+        const [trans, currency] = await Promise.all([
+            getAllTransactions(user.uid),
+            getDefaultCurrency(user.uid),
+        ]);
+        setTransactions(trans);
+        setDefaultCurrency(currency);
+    } catch (error) {
+        console.error("Error fetching overview data:", error);
+    } finally {
+        setIsLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
-    setDefaultCurrency(getDefaultCurrency());
+    if (user) {
+        fetchData();
+    }
     const handleDataChange = () => {
-      setTransactions([...allTransactions]);
+        if(user) fetchData();
     };
     window.addEventListener('transactionsUpdated', handleDataChange);
-    return () => window.removeEventListener('transactionsUpdated', handleDataChange);
-  }, []);
+    window.addEventListener('storage', handleDataChange);
+
+    return () => {
+        window.removeEventListener('transactionsUpdated', handleDataChange);
+        window.removeEventListener('storage', handleDataChange);
+    };
+  }, [user, fetchData]);
+
 
   const data = useMemo(() => {
     const reportableTransactions = transactions.filter(t => !t.excludeFromReport);
@@ -98,6 +128,10 @@ export function Overview({ timespan }: OverviewProps) {
     }
   };
 
+  if (isLoading) {
+    return <Skeleton className="w-full h-[350px]" />;
+  }
+
   return (
     <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
       <ResponsiveContainer width="100%" height={350}>
@@ -120,15 +154,33 @@ export function Overview({ timespan }: OverviewProps) {
               cursor={{fill: 'hsl(var(--muted))'}}
               content={<ChartTooltipContent indicator="dot" formatter={(value, name) => {
                  const formattedValue = new Intl.NumberFormat('en-US', { style: 'currency', currency: defaultCurrency }).format(value as number);
+                 const itemConfig = chartConfig[name as keyof typeof chartConfig];
                  return (
-                     <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground">{name}</span>
-                        <span className="font-bold">{formattedValue}</span>
+                     <div className="flex items-center gap-2">
+                         <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: itemConfig.color}}/>
+                         <div className="flex flex-col">
+                            <span className="text-xs text-muted-foreground">{itemConfig.label}</span>
+                            <span className="font-bold">{formattedValue}</span>
+                         </div>
                      </div>
                  )
               }}/>}
           />
-          <Legend />
+          <Legend content={({ payload }) => {
+              return (
+                  <div className="flex justify-center gap-4 mt-4">
+                      {payload?.map((entry) => {
+                           const itemConfig = chartConfig[entry.value as keyof typeof chartConfig];
+                           return (
+                               <div key={entry.value} className="flex items-center gap-2 text-sm">
+                                   <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: entry.color}}/>
+                                   <span>{itemConfig.label}</span>
+                               </div>
+                           )
+                      })}
+                  </div>
+              )
+          }}/>
           <Bar dataKey="income" fill="hsl(var(--accent))" name="Income" radius={[4, 4, 0, 0]} className="cursor-pointer" />
           <Bar dataKey="expense" fill="hsl(var(--destructive))" name="Expense" radius={[4, 4, 0, 0]} className="cursor-pointer" />
         </BarChart>
