@@ -21,14 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { currencies, transactions as allTransactions, categories as allCategories, wallets as allWallets, events as allEvents, debts as allDebts, user as currentUserObject } from "@/lib/data"
+import { currencies } from "@/lib/data"
 import { FileUp, Download, UploadCloud, Moon, Sun, Trash2, HardDriveDownload, HardDriveUpload, KeyRound } from "lucide-react"
 import { getDefaultCurrency, setDefaultCurrency } from "@/services/settings-service";
 import { useToast } from "@/hooks/use-toast";
-import { convertAllTransactions, convertAllWallets, convertAllDebts, addTransactions } from "@/services/transaction-service";
+import { convertAllTransactions, convertAllWallets, convertAllDebts, addTransactions, deleteAllTransactions as deleteAllTransactionsService } from "@/services/transaction-service";
 import { ConfirmCurrencyChangeDialog } from "@/components/confirm-currency-change-dialog";
-import { getUser, updateUser } from "@/services/user-service";
-import type { Transaction, Category } from "@/lib/data";
+import { updateUserProfile, getCurrentUser } from "@/services/user-service";
+import type { Transaction, Category, Wallet, Debt, Event } from "@/lib/data";
 import * as XLSX from 'xlsx';
 import { useTheme } from "@/components/theme-provider";
 import { Switch } from "@/components/ui/switch";
@@ -37,12 +37,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getTheme, setTheme as setAppTheme } from "@/services/theme-service";
 import { getDefaultWallet, setDefaultWallet } from "@/services/wallet-service";
 import { getTravelMode, setTravelMode } from "@/services/travel-mode-service";
-import { addCategory } from "@/services/category-service";
+import { addCategory, getAllCategories, deleteAllCategories } from "@/services/category-service";
 import { DeleteAllCategoriesDialog } from "@/components/delete-all-categories-dialog";
 import { getExchangeRateApiKey, setExchangeRateApiKey } from "@/services/api-key-service";
+import { useAuth } from "@/components/auth-provider";
+import { getAllWallets } from "@/services/wallet-service";
+import { getAllEvents } from "@/services/event-service";
+import { getAllTransactions } from "@/services/transaction-service";
+import { getAllDebts } from "@/services/debt-service";
 
 
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [currentDefaultCurrency, setCurrentDefaultCurrency] = useState('');
@@ -61,27 +67,34 @@ export default function SettingsPage() {
   
   useEffect(() => {
     setIsClient(true);
+    if (user) {
+        setName(user.displayName || '');
+        setEmail(user.email || '');
+        getDefaultCurrency(user.uid).then(currency => {
+            setCurrentDefaultCurrency(currency);
+            setSelectedCurrency(currency);
+        });
+        getExchangeRateApiKey(user.uid).then(key => setExchangeRateKey(key || ''));
+    }
+  }, [user]);
 
-    const initialCurrency = getDefaultCurrency();
-    setCurrentDefaultCurrency(initialCurrency);
-    setSelectedCurrency(initialCurrency);
-
-    const currentUser = getUser();
-    setName(currentUser.name);
-    setEmail(currentUser.email);
-
-    setExchangeRateKey(getExchangeRateApiKey() || '');
-  }, []);
-
-  const handleProfileSave = () => {
-    updateUser({ name, email });
-    toast({
-      title: "Profile Saved",
-      description: "Your name and email have been updated.",
-    });
-    // This is a simple way to force the header to update.
-    // In a more complex app, global state management would be better.
-    window.dispatchEvent(new Event('profileUpdated'));
+  const handleProfileSave = async () => {
+    try {
+        await updateUserProfile({ displayName: name });
+        toast({
+        title: "Profile Saved",
+        description: "Your name has been updated.",
+        });
+        // This is a simple way to force the header to update.
+        // In a more complex app, global state management would be better.
+        window.dispatchEvent(new Event('profileUpdated'));
+    } catch(e) {
+        toast({
+            title: "Error",
+            description: "Could not save profile.",
+            variant: "destructive"
+        })
+    }
   };
 
   const handleCurrencySaveClick = () => {
@@ -96,10 +109,11 @@ export default function SettingsPage() {
   };
 
   const handleConfirmation = async (conversionType: 'convert' | 'keep') => {
+    if (!user) return;
     const oldCurrency = currentDefaultCurrency;
     
     if (conversionType === 'convert') {
-      const apiKey = getExchangeRateApiKey();
+      const apiKey = await getExchangeRateApiKey(user.uid);
       if (!apiKey) {
         toast({
           title: "API Key Required",
@@ -113,9 +127,9 @@ export default function SettingsPage() {
           title: "Conversion in Progress",
           description: "Please wait while we convert your data...",
         });
-        await convertAllTransactions(oldCurrency, selectedCurrency);
-        await convertAllWallets(oldCurrency, selectedCurrency);
-        await convertAllDebts(oldCurrency, selectedCurrency);
+        await convertAllTransactions(user.uid, oldCurrency, selectedCurrency);
+        await convertAllWallets(user.uid, oldCurrency, selectedCurrency);
+        await convertAllDebts(user.uid, oldCurrency, selectedCurrency);
         toast({
           title: "Conversion Successful",
           description: `All financial data has been converted to ${selectedCurrency}.`,
@@ -131,7 +145,7 @@ export default function SettingsPage() {
       }
     }
     
-    setDefaultCurrency(selectedCurrency);
+    await setDefaultCurrency(user.uid, selectedCurrency);
     setCurrentDefaultCurrency(selectedCurrency);
     
     toast({
@@ -169,7 +183,14 @@ export default function SettingsPage() {
     document.body.removeChild(link);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
+    if (!user) return;
+    const [allTransactions, allCategories, allEvents] = await Promise.all([
+        getAllTransactions(user.uid),
+        getAllCategories(user.uid),
+        getAllEvents(user.uid),
+    ]);
+
     // 1. Prepare Transaction Data
     const transactionData = allTransactions.map((t, index) => {
         const eventName = t.eventId ? allEvents.find(e => e.id === t.eventId)?.name || '' : '';
@@ -211,7 +232,9 @@ export default function SettingsPage() {
     });
   };
   
-   const handleExportCategories = () => {
+   const handleExportCategories = async () => {
+    if (!user) return;
+    const allCategories = await getAllCategories(user.uid);
     const categoryData = allCategories.map(c => ({
       'Category Name': c.name,
       'Parent Category': allCategories.find(p => p.id === c.parentId)?.name || '',
@@ -234,7 +257,7 @@ export default function SettingsPage() {
     });
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!importFile) {
       toast({
         title: 'No file selected',
@@ -243,20 +266,26 @@ export default function SettingsPage() {
       });
       return;
     }
+    if (!user) return;
+
+    const [allCategories, allWallets, allEvents, defaultCurrency] = await Promise.all([
+        getAllCategories(user.uid),
+        getAllWallets(user.uid),
+        getAllEvents(user.uid),
+        getDefaultCurrency(user.uid),
+    ]);
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const text = e.target?.result as string;
       if (!text) return;
 
       const rows = text.split('\n').slice(1); // Skip header row
-      const newTransactions: Omit<Transaction, 'id'>[] = [];
+      const newTransactions: Omit<Transaction, 'id' | 'userId'>[] = [];
 
       try {
-        const categoryNames = new Set(allCategories.map(c => c.name.toLowerCase()));
         const walletNames = new Set(allWallets.map(w => w.name.toLowerCase()));
         const currencyCodes = new Set(currencies.map(c => c.toLowerCase()));
-        const eventNames = new Set(allEvents.map(ev => ev.name.toLowerCase()));
 
         rows.forEach((row, index) => {
           if (!row.trim()) return; // Skip empty rows
@@ -272,8 +301,6 @@ export default function SettingsPage() {
           const categoryObj = allCategories.find(c => c.name.toLowerCase() === category.toLowerCase());
           const eventObj = eventName ? allEvents.find(ev => ev.name.toLowerCase() === eventName.toLowerCase()) : null;
 
-
-          // --- VALIDATION ---
           if (!categoryObj) {
             throw new Error(`Error on row ${rowNum}: Category '${category}' not found.`);
           }
@@ -303,27 +330,27 @@ export default function SettingsPage() {
           if (!dateString) {
             throw new Error(`Date is missing on row ${rowNum}`);
           }
-          // More robust date parsing
-           const dateValue = new Date(dateString.trim().replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$2/$1/$3')); // Attempt to handle MM/DD vs DD/MM
+
+           const dateValue = new Date(dateString.trim().replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$2/$1/$3'));
           if (isNaN(dateValue.getTime())) {
              throw new Error(`Invalid time value on row ${rowNum}: "${dateString}". Please use a standard format like YYYY-MM-DD or MM/DD/YYYY.`);
           }
           
-          const newTransaction: Omit<Transaction, 'id'> = {
+          const newTransaction: Omit<Transaction, 'id' | 'userId' | 'attachments'> = {
             category: category,
             amount: Math.abs(amount),
             type: categoryObj.type,
             description: note,
             wallet: wallet,
-            currency: currency || getDefaultCurrency(),
+            currency: currency || defaultCurrency,
             date: dateValue.toISOString().split('T')[0],
             eventId: eventObj?.id,
             excludeFromReport: excludeReport?.toLowerCase() === 'true',
           };
-          newTransactions.push(newTransaction);
+          newTransactions.push(newTransaction as any);
         });
 
-        addTransactions(newTransactions);
+        await addTransactions(user.uid, newTransactions);
 
         toast({
           title: 'Import Successful',
@@ -347,7 +374,7 @@ export default function SettingsPage() {
     reader.readAsText(importFile);
   };
   
-  const handleImportCategories = () => {
+  const handleImportCategories = async () => {
     if (!importCategoriesFile) {
       toast({
         title: 'No file selected',
@@ -356,9 +383,12 @@ export default function SettingsPage() {
       });
       return;
     }
+    if (!user) return;
+
+    const allCategories = await getAllCategories(user.uid);
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const text = e.target?.result as string;
       if (!text) return;
 
@@ -366,10 +396,10 @@ export default function SettingsPage() {
       let importedCount = 0;
 
       try {
-        rows.forEach((row, index) => {
-          if (!row.trim()) return;
+        for (const row of rows) {
+          if (!row.trim()) continue;
           const [name, parentName, typeStr] = row.split(',').map(c => c.trim());
-          const rowNum = index + 2;
+          const rowNum = rows.indexOf(row) + 2;
 
           if (!name || !typeStr) {
             throw new Error(`Row ${rowNum}: Missing category name or type.`);
@@ -389,14 +419,14 @@ export default function SettingsPage() {
             parentId = parentCategory.id;
           }
 
-          addCategory({
+          await addCategory(user.uid, {
             name,
             parentId,
             type,
             icon: '🤔' // Default icon
           });
           importedCount++;
-        });
+        };
 
         toast({
           title: 'Import Successful',
@@ -419,29 +449,47 @@ export default function SettingsPage() {
     reader.readAsText(importCategoriesFile);
   };
 
-  const handleBackup = () => {
+  const handleBackup = async () => {
+    if (!user) return;
     try {
+      const [
+        allTransactions, 
+        allCategories, 
+        allWallets, 
+        allDebts, 
+        allEvents,
+        currentUser,
+        defaultCurrency,
+        theme,
+        defaultWallet,
+        travelMode
+      ] = await Promise.all([
+        getAllTransactions(user.uid),
+        getAllCategories(user.uid),
+        getAllWallets(user.uid),
+        getAllDebts(user.uid),
+        getAllEvents(user.uid),
+        getCurrentUser(),
+        getDefaultCurrency(user.uid),
+        getTheme(),
+        getDefaultWallet(user.uid),
+        getTravelMode(user.uid)
+      ]);
+
       const settings = {
-        defaultCurrency: getDefaultCurrency(),
-        theme: getTheme(),
-        defaultWallet: getDefaultWallet(),
-        travelMode: getTravelMode(),
+        defaultCurrency,
+        theme,
+        defaultWallet,
+        travelMode,
       };
 
-      // We need to handle files in transactions. For simplicity, we'll store file names
-      // and accept that restoring won't restore file contents, just their names.
-      const serializableTransactions = allTransactions.map(t => ({
-          ...t,
-          attachments: t.attachments?.map(f => f.name) ?? [],
-      }));
-
       const backupData = {
-        transactions: serializableTransactions,
+        transactions: allTransactions,
         categories: allCategories,
         wallets: allWallets,
         debts: allDebts,
         events: allEvents,
-        user: currentUserObject,
+        user: { name: currentUser?.displayName, email: currentUser?.email },
         settings: settings,
       };
 
@@ -471,17 +519,17 @@ export default function SettingsPage() {
   };
 
   const handleRestore = () => {
-    if (!restoreFile) {
+    if (!restoreFile || !user) {
       toast({
-        title: 'No file selected',
-        description: 'Please select a JSON backup file to restore.',
+        title: 'No file or user',
+        description: 'Please select a JSON backup file to restore and make sure you are logged in.',
         variant: 'destructive',
       });
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
         try {
             const text = e.target?.result as string;
             if (!text) throw new Error("File is empty.");
@@ -494,32 +542,29 @@ export default function SettingsPage() {
             }
 
             // --- RESTORE DATA ---
-            // Clear existing data
-            allTransactions.length = 0;
-            allCategories.length = 0;
-            allWallets.length = 0;
-            allDebts.length = 0;
-            allEvents.length = 0;
-
-            // Push new data
-            // Note: transaction attachments are just names, not actual files.
-             data.transactions.forEach((t: any) => allTransactions.push({...t, attachments: []}));
-            data.categories.forEach((c: any) => allCategories.push(c));
-            data.wallets.forEach((w: any) => allWallets.push(w));
-            if (data.debts) data.debts.forEach((d: any) => allDebts.push(d));
-            if (data.events) data.events.forEach((ev: any) => allEvents.push(ev));
+            toast({ title: "Restore in progress...", description: "Please wait."});
+            await deleteAllTransactionsService(user.uid);
+            await deleteAllCategories(user.uid);
+            // We can add more deletions here for wallets, debts, etc. if needed.
+            
+            if (data.transactions) await addTransactions(user.uid, data.transactions.map((t: any) => ({...t, userId: user.uid})));
+            if (data.categories) {
+                for(const c of data.categories) {
+                    await addCategory(user.uid, {...c, userId: user.uid});
+                }
+            }
             
             // --- RESTORE SETTINGS ---
-            if (data.settings.defaultCurrency) setDefaultCurrency(data.settings.defaultCurrency);
+            if (data.settings.defaultCurrency) await setDefaultCurrency(user.uid, data.settings.defaultCurrency);
             if (data.settings.theme) setAppTheme(data.settings.theme);
-            if (data.settings.defaultWallet) setDefaultWallet(data.settings.defaultWallet);
+            if (data.settings.defaultWallet) await setDefaultWallet(user.uid, data.settings.defaultWallet);
             if (data.settings.travelMode && data.settings.travelMode.isActive) {
-                setTravelMode(data.settings.travelMode);
+                setTravelMode(user.uid, data.settings.travelMode);
             }
 
             // --- RESTORE USER ---
-            if (data.user) {
-                updateUser(data.user);
+            if (data.user?.name) {
+                await updateUserProfile({ displayName: data.user.name });
             }
 
             toast({
@@ -547,6 +592,7 @@ export default function SettingsPage() {
   };
   
   const handleApiKeySave = async () => {
+    if (!user) return;
     setIsVerifyingKey(true);
     const url = `https://v6.exchangerate-api.com/v6/${exchangeRateKey}/latest/USD`;
 
@@ -555,7 +601,7 @@ export default function SettingsPage() {
       const data = await response.json();
 
       if (response.ok && data.result === 'success') {
-        setExchangeRateApiKey(exchangeRateKey);
+        await setExchangeRateApiKey(user.uid, exchangeRateKey);
         toast({
             title: 'API Key Verified & Saved',
             description: 'Your ExchangeRate-API key is valid and has been saved.',
@@ -605,7 +651,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Input id="email" type="email" value={email} disabled />
                 </div>
             </CardContent>
             <CardFooter className="border-t px-6 py-4">
@@ -682,7 +728,7 @@ export default function SettingsPage() {
                         placeholder="Enter your API key"
                     />
                     <p className="text-xs text-muted-foreground">
-                        Required for automatic currency conversion in Travel Mode. Get a free key from <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer" className="underline">exchangerate-api.com</a>.
+                        Required for automatic currency conversion. Get a free key from <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer" className="underline">exchangerate-api.com</a>.
                     </p>
                 </div>
             </CardContent>
@@ -707,7 +753,7 @@ export default function SettingsPage() {
                         <p className="text-sm text-muted-foreground">
                             Import transactions from a CSV template.
                         </p>
-                         <Button variant="outline" onClick={handleDownloadTemplate} className="w-full sm:w-auto">
+                         <Button variant="outline" onClick={handleDownloadTemplate} className="w-full">
                             <Download className="mr-2 h-4 w-4" />
                             Download Template
                         </Button>
@@ -717,7 +763,7 @@ export default function SettingsPage() {
                         <p className="text-sm text-muted-foreground">
                             Export main data to a single .xlsx file.
                         </p>
-                        <Button variant="outline" onClick={handleExport} className="w-full sm:w-auto">
+                        <Button variant="outline" onClick={handleExport} className="w-full">
                             <UploadCloud className="mr-2 h-4 w-4" />
                            Export to XLSX
                         </Button>
@@ -725,10 +771,10 @@ export default function SettingsPage() {
                </div>
                <div className="space-y-2">
                 <Label htmlFor="import-file">Upload CSV File for Import</Label>
-                <div className="flex flex-col sm:flex-row items-center gap-2">
-                  <Input id="import-file" type="file" accept=".csv" className="w-full sm:max-w-xs" onChange={(e) => setImportFile(e.target.files ? e.target.files[0] : null)} />
-                   <Button onClick={handleImport} disabled={!importFile}>
-                     <FileUp className="mr-2 h-4 w-4" /> Import from CSV
+                <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                  <Input id="import-file" type="file" accept=".csv" className="flex-1" onChange={(e) => setImportFile(e.target.files ? e.target.files[0] : null)} />
+                   <Button onClick={handleImport} disabled={!importFile} className="w-full sm:w-auto">
+                     <FileUp className="mr-2 h-4 w-4" /> Import
                   </Button>
                 </div>
               </div>
@@ -747,7 +793,7 @@ export default function SettingsPage() {
                         <p className="text-sm text-muted-foreground">
                             Import categories from a CSV template.
                         </p>
-                         <Button variant="outline" onClick={handleDownloadCategoryTemplate} className="w-full sm:w-auto">
+                         <Button variant="outline" onClick={handleDownloadCategoryTemplate} className="w-full">
                             <Download className="mr-2 h-4 w-4" />
                             Download Template
                         </Button>
@@ -757,7 +803,7 @@ export default function SettingsPage() {
                         <p className="text-sm text-muted-foreground">
                             Export your categories to a CSV file.
                         </p>
-                        <Button variant="outline" onClick={handleExportCategories} className="w-full sm:w-auto">
+                        <Button variant="outline" onClick={handleExportCategories} className="w-full">
                             <UploadCloud className="mr-2 h-4 w-4" />
                            Export to CSV
                         </Button>
@@ -765,10 +811,10 @@ export default function SettingsPage() {
                </div>
                  <div className="space-y-2">
                     <Label htmlFor="import-categories-file">Upload Category CSV</Label>
-                    <div className="flex flex-col sm:flex-row items-center gap-2">
-                        <Input id="import-categories-file" type="file" accept=".csv" className="w-full sm:max-w-xs" onChange={(e) => setImportCategoriesFile(e.target.files ? e.target.files[0] : null)} />
-                        <Button onClick={handleImportCategories} disabled={!importCategoriesFile}>
-                            <FileUp className="mr-2 h-4 w-4" /> Import Categories
+                    <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                        <Input id="import-categories-file" type="file" accept=".csv" className="flex-1" onChange={(e) => setImportCategoriesFile(e.target.files ? e.target.files[0] : null)} />
+                        <Button onClick={handleImportCategories} disabled={!importCategoriesFile} className="w-full sm:w-auto">
+                            <FileUp className="mr-2 h-4 w-4" /> Import
                         </Button>
                     </div>
                 </div>
@@ -784,11 +830,11 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 border rounded-lg flex flex-col sm:flex-row gap-4 justify-between">
+              <div className="p-4 border rounded-lg">
                   <div className="space-y-2">
                       <h3 className="font-semibold">Backup</h3>
                       <p className="text-sm text-muted-foreground">Download a single JSON file containing all your data and settings.</p>
-                      <Button variant="default" onClick={handleBackup}>
+                      <Button variant="default" onClick={handleBackup} className="w-full sm:w-auto">
                           <HardDriveDownload className="mr-2 h-4 w-4" />
                           Backup All Data
                       </Button>
@@ -796,16 +842,14 @@ export default function SettingsPage() {
               </div>
                <div className="space-y-2">
                 <Label htmlFor="restore-file">Upload JSON for Restore</Label>
-                <div className="flex flex-col sm:flex-row items-center gap-2">
-                  <Input id="restore-file" type="file" accept=".json" className="w-full sm:max-w-xs" onChange={(e) => setRestoreFile(e.target.files ? e.target.files[0] : null)} />
+                <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                  <Input id="restore-file" type="file" accept=".json" className="flex-1" onChange={(e) => setRestoreFile(e.target.files ? e.target.files[0] : null)} />
+                   <Button onClick={handleRestore} disabled={!restoreFile} className="w-full sm:w-auto">
+                    <HardDriveUpload className="mr-2 h-4 w-4" /> Restore
+                  </Button>
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="border-t px-6 py-4">
-              <Button onClick={handleRestore} disabled={!restoreFile}>
-                <HardDriveUpload className="mr-2 h-4 w-4" /> Restore from Backup
-              </Button>
-            </CardFooter>
           </Card>
 
 
@@ -815,11 +859,11 @@ export default function SettingsPage() {
               <CardDescription>These actions are irreversible. Please be certain.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col sm:flex-row gap-2">
-                <Button variant="destructive" onClick={() => setIsDeleteAllTransactionsDialogOpen(true)}>
+                <Button variant="destructive" className="w-full sm:w-auto" onClick={() => setIsDeleteAllTransactionsDialogOpen(true)}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete All Transactions
                 </Button>
-                <Button variant="destructive" onClick={() => setIsDeleteAllCategoriesDialogOpen(true)}>
+                <Button variant="destructive" className="w-full sm:w-auto" onClick={() => setIsDeleteAllCategoriesDialogOpen(true)}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete All Categories
                 </Button>
