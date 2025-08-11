@@ -104,7 +104,7 @@ export async function deleteAllTransactions(userId: string): Promise<void> {
 }
 
 async function getExchangeRate(userId: string, fromCurrency: string, toCurrency: string): Promise<number> {
-    const apiKey = await getExchangeRateApiKey();
+    const apiKey = await getExchangeRateApiKey(userId);
     if (!apiKey) {
       throw new Error("ExchangeRate API Key not found. Please set it in the settings.");
     }
@@ -137,7 +137,7 @@ async function getExchangeRate(userId: string, fromCurrency: string, toCurrency:
     }
 }
 
-export async function convertAmount(amount: number, fromCurrency: string, toCurrency: string, userId: string): Promise<number> {
+export async function convertAmount(userId: string, amount: number, fromCurrency: string, toCurrency: string): Promise<number> {
     if (fromCurrency === toCurrency) {
         return amount;
     }
@@ -147,15 +147,15 @@ export async function convertAmount(amount: number, fromCurrency: string, toCurr
 
 
 export async function convertAllTransactions(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
-    const exchangeRate = await getExchangeRate(userId, fromCurrency, toCurrency);
     const allTransactions = await getAllTransactions(userId);
     const batch = writeBatch(firestore);
 
     for (const transaction of allTransactions) {
         if (transaction.currency === fromCurrency) {
             const docRef = doc(firestore, 'users', userId, 'transactions', transaction.id);
+            const convertedAmount = await convertAmount(userId, transaction.amount, fromCurrency, toCurrency);
             batch.update(docRef, {
-                amount: transaction.amount * exchangeRate,
+                amount: convertedAmount,
                 currency: toCurrency,
             });
         }
