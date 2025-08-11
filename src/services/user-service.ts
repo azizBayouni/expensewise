@@ -1,15 +1,23 @@
 
-import { user, type User } from '@/lib/data';
+import { auth } from '@/lib/firebase';
+import { updateProfile, type User } from 'firebase/auth';
 
-// Keep track of user data in memory for the session
-let currentUser: User = { ...user };
-
-export function getUser(): User {
-  // Always return the in-memory user
-  return currentUser;
+export function getCurrentUser(): User | null {
+  return auth.currentUser;
 }
 
-export function updateUser(updatedUser: Partial<Omit<User, 'avatar'>>): void {
-  // Update the in-memory user object
-  currentUser = { ...currentUser, ...updatedUser };
+export async function updateUserProfile(profile: { displayName?: string, photoURL?: string }): Promise<void> {
+  const user = getCurrentUser();
+  if (user) {
+    try {
+      await updateProfile(user, profile);
+      // Dispatch an event to notify other components of the profile change
+      window.dispatchEvent(new Event('profileUpdated'));
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      throw error;
+    }
+  } else {
+    throw new Error("No user is currently signed in.");
+  }
 }

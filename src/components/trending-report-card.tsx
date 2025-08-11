@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -14,27 +14,49 @@ import {
   CarouselPrevious,
   type CarouselApi,
 } from '@/components/ui/carousel';
-import { transactions as allTransactions } from '@/lib/data';
 import { startOfMonth, isWithinInterval, parseISO } from 'date-fns';
-import { TrendingUp, TrendingDown, Wallet, Utensils, HelpCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, HelpCircle } from 'lucide-react';
 import { getDefaultCurrency } from '@/services/settings-service';
+import { useAuth } from './auth-provider';
+import { getAllTransactions } from '@/services/transaction-service';
+import type { Transaction } from '@/lib/data';
+import { Skeleton } from './ui/skeleton';
 
 export function TrendingReportCard() {
+  const { user } = useAuth();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
   const [defaultCurrency, setDefaultCurrency] = useState('USD');
-  const [transactions, setTransactions] = useState(allTransactions);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+        const [trans, currency] = await Promise.all([
+            getAllTransactions(user.uid),
+            getDefaultCurrency(user.uid),
+        ]);
+        setTransactions(trans);
+        setDefaultCurrency(currency);
+    } catch (error) {
+        console.error("Error fetching trending report data:", error);
+    } finally {
+        setIsLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    setDefaultCurrency(getDefaultCurrency());
-
-    const handleDataChange = () => {
-        setTransactions([...allTransactions]);
+    if(user) {
+        fetchData();
+    }
+     const handleDataChange = () => {
+        if(user) fetchData();
     };
-
     window.addEventListener('transactionsUpdated', handleDataChange);
     return () => window.removeEventListener('transactionsUpdated', handleDataChange);
-  }, []);
+  }, [user, fetchData]);
 
   useEffect(() => {
     if (!api) {
@@ -53,10 +75,10 @@ export function TrendingReportCard() {
     return reportableTransactions.filter(t => isWithinInterval(parseISO(t.date), { start, end: now }));
   }, [transactions]);
 
-  const formatCurrency = (amount: number, currency: string) => {
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency,
+      currency: defaultCurrency,
     }).format(amount);
   };
   
@@ -98,14 +120,14 @@ export function TrendingReportCard() {
     if (topCategory) {
         trends.push({ 
             title: "Top Spending Category", 
-            value: `${topCategory[0]}: ${formatCurrency(topCategory[1], defaultCurrency)}`,
+            value: `${topCategory[0]}: ${formatCurrency(topCategory[1])}`,
             icon: <TrendingDown className="h-8 w-8 text-destructive" />
         });
     }
     if(largestTransaction) {
          trends.push({
             title: "Largest Transaction",
-            value: `${largestTransaction.category}: ${formatCurrency(largestTransaction.amount, defaultCurrency)}`,
+            value: `${largestTransaction.category}: ${formatCurrency(largestTransaction.amount)}`,
             icon: <TrendingUp className="h-8 w-8 text-accent" />
         });
     }
@@ -121,7 +143,16 @@ export function TrendingReportCard() {
         { title: "No trends available for this month.", value: "", icon: <HelpCircle className="h-8 w-8 text-muted-foreground" /> }
     ];
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthlyTransactions, defaultCurrency]);
+
+  if (isLoading) {
+      return (
+        <Card className="flex items-center justify-center p-4">
+            <Skeleton className="h-40 w-full" />
+        </Card>
+      )
+  }
 
 
   return (
