@@ -62,12 +62,14 @@ interface EditTransactionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   transaction: Transaction | null;
+  onTransactionUpdated: () => void;
 }
 
 export function EditTransactionDialog({
   isOpen,
   onOpenChange,
   transaction,
+  onTransactionUpdated
 }: EditTransactionDialogProps) {
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState<number | ''>('');
@@ -269,6 +271,7 @@ export function EditTransactionDialog({
         description: 'Your transaction has been successfully updated.',
       });
       
+      onTransactionUpdated();
       onOpenChange(false);
     }
   };
@@ -281,6 +284,7 @@ export function EditTransactionDialog({
             description: 'The transaction has been successfully deleted.',
             variant: 'destructive'
         });
+        onTransactionUpdated();
         onOpenChange(false);
     }
   }

@@ -310,12 +310,17 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-      <NewTransactionDialog isOpen={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} />
+      <NewTransactionDialog 
+        isOpen={isAddDialogOpen} 
+        onOpenChange={setIsAddDialogOpen} 
+        onTransactionAdded={fetchData} 
+      />
       {selectedTransaction && (
         <EditTransactionDialog 
             isOpen={isEditDialogOpen} 
             onOpenChange={setIsEditDialogOpen} 
             transaction={selectedTransaction}
+            onTransactionUpdated={fetchData}
         />
       )}
     </>
