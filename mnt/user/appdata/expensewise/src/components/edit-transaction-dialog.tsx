@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -163,7 +164,7 @@ export function EditTransactionDialog({
   const resetAndInitialize = useCallback(async () => {
     if (!user) return;
     await fetchData();
-    const travelMode = getTravelMode();
+    const travelMode = getTravelMode(user.uid);
     setIsTravelMode(travelMode.isActive);
 
     if (transaction) {
@@ -328,7 +329,8 @@ export function EditTransactionDialog({
                                 setCategory(currentValue === category ? "" : currentValue)
                                 setIsCategoryPopoverOpen(false)
                             }}
-                            className={cn(!isSelectable ? 'font-normal' : 'font-semibold text-muted-foreground', `pl-${4 + level * 4}`)}
+                            style={{ paddingLeft: `${1 + level * 1.5}rem` }}
+                            className={cn(!isSelectable && 'font-semibold text-muted-foreground')}
                         >
                              <Check
                                 className={cn(
@@ -348,7 +350,8 @@ export function EditTransactionDialog({
                             key={c.id}
                             value={c.name}
                             disabled={!isSelectable}
-                            className={cn(!isSelectable ? 'font-normal' : 'font-semibold text-muted-foreground', `pl-${4 + level * 4}`)}
+                            style={{ paddingLeft: `${1 + level * 1.5}rem` }}
+                            className={cn(!isSelectable && 'font-semibold text-muted-foreground')}
                         >
                             {c.name}
                         </SelectItem>

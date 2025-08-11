@@ -1,17 +1,16 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { wallets as allWallets, type Wallet, getWalletBalance } from '@/lib/data';
+import { type Wallet } from '@/lib/data';
 import { PlusCircle, MoreVertical, Edit, Trash2, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -34,10 +33,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { EditWalletDialog } from '@/components/edit-wallet-dialog';
 import { AddWalletDialog } from '@/components/add-wallet-dialog';
-import { deleteWallet, getDefaultWallet, setDefaultWallet } from '@/services/wallet-service';
+import { deleteWallet, getDefaultWallet, setDefaultWallet, getAllWallets } from '@/services/wallet-service';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { getAllTransactions } from '@/services/transaction-service';
+import { getWalletBalance } from '@/lib/data';
+import { Skeleton } from '@/components/ui/skeleton';
 
+const MOCK_USER_ID = 'dev-user';
 
 export default function WalletsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -45,35 +48,49 @@ export default function WalletsPage() {
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
   const [defaultWalletId, setDefaultWalletId] = useState<string | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
   
-  useEffect(() => {
-    const refreshWallets = () => {
-        setDefaultWalletId(getDefaultWallet());
-        const updatedWallets = allWallets.map(w => ({
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+        const [wals, trans, defWallet] = await Promise.all([
+            getAllWallets(MOCK_USER_ID),
+            getAllTransactions(MOCK_USER_ID),
+            getDefaultWallet(MOCK_USER_ID)
+        ]);
+        
+        const walletsWithBalance = wals.map(w => ({
             ...w,
-            balance: getWalletBalance(w.name)
+            balance: getWalletBalance(w, trans)
         }));
-        setWallets(updatedWallets);
+        
+        setWallets(walletsWithBalance);
+        setDefaultWalletId(defWallet);
+    } catch (error) {
+        console.error("Error fetching wallets page data:", error);
+    } finally {
+        setIsLoading(false);
     }
-    
-    refreshWallets();
+  }, []);
 
+  useEffect(() => {
+    fetchData();
     const handleDataChange = () => {
-       refreshWallets();
+       fetchData();
     }
     window.addEventListener('transactionsUpdated', handleDataChange);
-    window.addEventListener('storage', handleDataChange);
     window.addEventListener('walletsUpdated', handleDataChange);
+    window.addEventListener('defaultWalletChanged', handleDataChange);
     
     return () => {
       window.removeEventListener('transactionsUpdated', handleDataChange);
-      window.removeEventListener('storage', handleDataChange);
       window.removeEventListener('walletsUpdated', handleDataChange);
+      window.removeEventListener('defaultWalletChanged', handleDataChange);
     }
 
-  }, []);
+  }, [fetchData]);
 
   const handleEditClick = (e: React.MouseEvent, wallet: Wallet) => {
     e.stopPropagation();
@@ -83,7 +100,7 @@ export default function WalletsPage() {
 
   const handleDeleteClick = (e: React.MouseEvent, walletId: string) => {
     e.stopPropagation();
-    deleteWallet(walletId);
+    deleteWallet(MOCK_USER_ID, walletId);
     toast({
         title: "Wallet Deleted",
         description: "The wallet has been successfully deleted.",
@@ -93,7 +110,7 @@ export default function WalletsPage() {
 
   const handleSetDefault = (e: React.MouseEvent, walletId: string) => {
     e.stopPropagation();
-    setDefaultWallet(walletId);
+    setDefaultWallet(MOCK_USER_ID, walletId);
     setDefaultWalletId(walletId);
     toast({
       title: "Default Wallet Set",
@@ -105,6 +122,20 @@ export default function WalletsPage() {
     const params = new URLSearchParams();
     params.set('wallets', walletName);
     router.push(`/reports?${params.toString()}`);
+  }
+
+  if (isLoading) {
+      return (
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+            <div className="flex items-center justify-between">
+                <Skeleton className="h-10 w-64" />
+                <Skeleton className="h-10 w-36" />
+            </div>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-32" />)}
+            </div>
+        </div>
+      )
   }
 
   return (

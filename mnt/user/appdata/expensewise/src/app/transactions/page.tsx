@@ -38,7 +38,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth-provider';
 import { getAllTransactions } from '@/services/transaction-service';
-import { getAllCategories } from '@/services/category-service';
+import { getAllCategories, getCategoryDepth } from '@/services/category-service';
 import { getAllWallets } from '@/services/wallet-service';
 import { getAllEvents } from '@/services/event-service';
 import type { Transaction, Category, Wallet, Event } from '@/lib/data';
@@ -127,7 +127,15 @@ export default function TransactionsPage() {
     });
   }, [searchQuery, selectedCategories, walletFilter, dateRange, transactions]);
 
-  const categoryOptions = categories.map(c => ({ value: c.id, label: c.name }));
+  const categoryOptions = useMemo(() => {
+    const sorted = [...categories].sort((a,b) => a.name.localeCompare(b.name));
+    return sorted.map(c => ({ 
+        value: c.name, 
+        label: c.name,
+        depth: getCategoryDepth(c.id, categories)
+    }));
+  }, [categories]);
+
   const getEventName = (eventId?: string) => {
     if (!eventId) return '-';
     return events.find(e => e.id === eventId)?.name || '-';
@@ -312,3 +320,5 @@ export default function TransactionsPage() {
     </>
   );
 }
+
+    

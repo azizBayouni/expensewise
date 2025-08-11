@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -21,7 +21,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { DollarSign, Wallet, TrendingUp, TrendingDown, PlusCircle } from 'lucide-react';
 import { Overview } from '@/components/overview';
-import { transactions, wallets as allWallets, debts as allDebts, type Transaction, getWalletBalance } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { NewTransactionDialog } from '@/components/new-transaction-dialog';
 import { getDefaultCurrency } from '@/services/settings-service';
@@ -30,41 +29,77 @@ import { TrendingReportCard } from '@/components/trending-report-card';
 import { EditTransactionDialog } from '@/components/edit-transaction-dialog';
 import { isThisMonth, parseISO, startOfMonth, endOfMonth, format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/components/auth-provider';
+import { getAllTransactions } from '@/services/transaction-service';
+import { getAllWallets } from '@/services/wallet-service';
+import { getAllDebts } from '@/services/debt-service';
+import { getWalletBalance } from '@/lib/data';
+import type { Transaction, Wallet as WalletType, Debt } from '@/lib/data';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [defaultCurrency, setDefaultCurrency] = useState('USD');
-  const [forceRerender, setForceRerender] = useState(0);
   const [overviewTimespan, setOverviewTimespan] = useState<'6m' | '12m' | 'ytd'>('6m');
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [wallets, setWallets] = useState<WalletType[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
 
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+        const [trans, wals, dts, currency] = await Promise.all([
+            getAllTransactions(user.uid),
+            getAllWallets(user.uid),
+            getAllDebts(user.uid),
+            getDefaultCurrency(user.uid),
+        ]);
+        setTransactions(trans);
+        setWallets(wals);
+        setDebts(dts);
+        setDefaultCurrency(currency);
+    } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+    } finally {
+        setIsLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    setDefaultCurrency(getDefaultCurrency());
-
-    const handleDataChange = () => {
-        // This is a simple way to force a re-render when data changes.
-        // In a more complex app, a more robust state management solution would be better.
-        setForceRerender(Math.random());
-    };
-
+    if (user) {
+        fetchData();
+    }
+  }, [user, fetchData]);
+  
+  useEffect(() => {
+    if (!user) return;
+    const handleDataChange = () => fetchData();
     window.addEventListener('transactionsUpdated', handleDataChange);
+    window.addEventListener('walletsUpdated', handleDataChange);
+    window.addEventListener('debtsUpdated', handleDataChange);
     window.addEventListener('storage', handleDataChange);
 
     return () => {
         window.removeEventListener('transactionsUpdated', handleDataChange);
+        window.removeEventListener('walletsUpdated', handleDataChange);
+        window.removeEventListener('debtsUpdated', handleDataChange);
         window.removeEventListener('storage', handleDataChange);
     };
+  }, [user, fetchData]);
 
-  }, []);
 
   const dashboardData = useMemo(() => {
     const reportableTransactions = transactions.filter(t => !t.excludeFromReport);
     const thisMonthTransactions = reportableTransactions.filter(t => isThisMonth(parseISO(t.date)));
 
-    const totalBalance = allWallets.reduce((sum, wallet) => {
-        return sum + getWalletBalance(wallet.name);
+    const totalBalance = wallets.reduce((sum, wallet) => {
+        return sum + getWalletBalance(wallet, transactions);
     }, 0);
 
     const monthlyIncome = thisMonthTransactions
@@ -74,8 +109,8 @@ export default function Dashboard() {
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
     
-    const activePayables = allDebts.filter(d => d.type === 'payable' && d.status !== 'paid');
-    const activeReceivables = allDebts.filter(d => d.type === 'receivable' && d.status !== 'paid');
+    const activePayables = debts.filter(d => d.type === 'payable' && d.status !== 'paid');
+    const activeReceivables = debts.filter(d => d.type === 'receivable' && d.status !== 'paid');
     
     const activeDebtsAmount = activePayables.reduce((sum, d) => {
         const totalPaid = d.payments.reduce((paidSum, p) => paidSum + p.amount, 0);
@@ -98,8 +133,7 @@ export default function Dashboard() {
         totalTransactionsThisMonth: reportableTransactions.length,
         thisMonthQuery: `from=${monthStart}&to=${monthEnd}`
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forceRerender]);
+  }, [transactions, wallets, debts]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -119,6 +153,33 @@ export default function Dashboard() {
     setSelectedTransaction(transaction);
     setIsEditDialogOpen(true);
   };
+  
+  if (isLoading) {
+    return (
+       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-2 md:space-y-0">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-10 w-36" />
+        </div>
+        <div className="space-y-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <Skeleton className="h-28" />
+            <Skeleton className="h-28" />
+            <Skeleton className="h-28" />
+            <Skeleton className="h-28" />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+             <div className="col-span-full grid gap-4 lg:grid-cols-2">
+                <Skeleton className="h-80" />
+                <Skeleton className="h-80" />
+            </div>
+            <Skeleton className="lg:col-span-4 h-96" />
+            <Skeleton className="lg:col-span-3 h-96" />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -252,12 +313,17 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-      <NewTransactionDialog isOpen={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} />
-      <EditTransactionDialog 
-        isOpen={isEditDialogOpen} 
-        onOpenChange={setIsEditDialogOpen} 
-        transaction={selectedTransaction}
-      />
+      <NewTransactionDialog isOpen={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onTransactionAdded={fetchData} />
+      {selectedTransaction && (
+        <EditTransactionDialog 
+            isOpen={isEditDialogOpen} 
+            onOpenChange={setIsEditDialogOpen} 
+            transaction={selectedTransaction}
+            onTransactionUpdated={fetchData}
+        />
+      )}
     </>
   );
 }
+
+    
