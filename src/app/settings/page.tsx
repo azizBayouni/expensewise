@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect } from "react";
@@ -43,7 +42,7 @@ import { DeleteAllCategoriesDialog } from "@/components/delete-all-categories-di
 import { getExchangeRateApiKey, setExchangeRateApiKey } from "@/services/api-key-service";
 import { useAuth } from "@/components/auth-provider";
 import { getAllEvents } from "@/services/event-service";
-import { verifyApiKey } from "@/ai/flows/verify-api-key-flow";
+import { verifyApiKey } from "../../ai/flows/verify-api-key-flow";
 
 
 export default function SettingsPage() {
