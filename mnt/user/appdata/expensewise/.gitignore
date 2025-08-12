@@ -1,11 +1,8 @@
-# Local database
-/db/expensewise.db
-/db/expensewise.db-journal
-/db/expensewise.db-wal
-/db/expensewise.db-shm
-
-# Node dependencies
+# Node modules
 /node_modules
+
+# SQLite Database
+/db/
 
 # Next.js build output
 /.next/
@@ -14,21 +11,11 @@
 # dotenv environment variables file
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
-# Vercel deployment metadata
+# Vercel deployment configuration
 .vercel
 
-# Public attachments
-/public/attachments
-
-# IDE settings
-.vscode/
-.idea/
-
-# macOS files
+# Mac-specific files
 .DS_Store
 
 # Log files
