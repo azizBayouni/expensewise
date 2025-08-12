@@ -26,10 +26,10 @@ import {
 import { EditDebtDialog } from '@/components/edit-debt-dialog';
 import { getAllDebts } from '@/services/debt-service';
 import { Skeleton } from '@/components/ui/skeleton';
-
-const MOCK_USER_ID = 'dev-user';
+import { useAuth } from '@/components/auth-provider';
 
 export default function DebtsPage() {
+  const { user } = useAuth();
   const [defaultCurrency, setDefaultCurrency] = useState('USD');
   const [debts, setDebts] = useState<Debt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,11 +38,12 @@ export default function DebtsPage() {
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setIsLoading(true);
     try {
         const [userDebts, currency] = await Promise.all([
-            getAllDebts(MOCK_USER_ID),
-            getDefaultCurrency(MOCK_USER_ID),
+            getAllDebts(user.uid),
+            getDefaultCurrency(user.uid),
         ]);
         setDebts(userDebts);
         setDefaultCurrency(currency);
@@ -51,16 +52,18 @@ export default function DebtsPage() {
     } finally {
         setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    fetchData();
+    if (user) {
+      fetchData();
+    }
     const handleDataChange = () => {
-        fetchData();
+        if (user) fetchData();
     }
     window.addEventListener('debtsUpdated', handleDataChange);
     return () => window.removeEventListener('debtsUpdated', handleDataChange);
-  }, [fetchData]);
+  }, [user, fetchData]);
 
   const payables = debts.filter((d) => d.type === 'payable');
   const receivables = debts.filter((d) => d.type === 'receivable');
@@ -223,19 +226,17 @@ export default function DebtsPage() {
     </div>
      <AddDebtDialog
         isOpen={isAddDialogOpen}
-        onOpenChange={(open) => {
-            setIsAddDialogOpen(open);
-            if (!open) fetchData();
-        }}
+        onOpenChange={setIsAddDialogOpen}
+        onDebtAdded={fetchData}
      />
-     <EditDebtDialog
-        isOpen={isEditDialogOpen}
-        onOpenChange={(open) => {
-            setIsEditDialogOpen(open);
-            if (!open) fetchData();
-        }}
-        debt={selectedDebt}
-     />
+     {selectedDebt && (
+        <EditDebtDialog
+            isOpen={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
+            debt={selectedDebt}
+            onDebtUpdated={fetchData}
+        />
+     )}
     </>
   );
 }

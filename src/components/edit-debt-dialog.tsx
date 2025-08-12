@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -35,24 +34,28 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CalendarIcon, Trash2, PlusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { updateDebt, deleteDebt, addPaymentToDebt } from '@/services/debt-service';
 import { Textarea } from './ui/textarea';
 import type { Debt, Payment } from '@/lib/data';
 import { Separator } from './ui/separator';
+import { useAuth } from './auth-provider';
 
 interface EditDebtDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   debt: Debt | null;
+  onDebtUpdated: () => void;
 }
 
 export function EditDebtDialog({
   isOpen,
   onOpenChange,
-  debt
+  debt,
+  onDebtUpdated,
 }: EditDebtDialogProps) {
+  const { user } = useAuth();
   const [type, setType] = useState<'payable' | 'receivable'>('payable');
   const [person, setPerson] = useState('');
   const [amount, setAmount] = useState<number | ''>('');
@@ -73,23 +76,27 @@ export function EditDebtDialog({
     return originalAmount - totalPaid;
   }, [amount, totalPaid]);
 
+  const updateLocalState = useCallback((updatedDebt: Debt) => {
+      setType(updatedDebt.type);
+      setPerson(updatedDebt.person);
+      setAmount(updatedDebt.amount);
+      setCurrency(updatedDebt.currency);
+      setDueDate(parseISO(updatedDebt.dueDate));
+      setNote(updatedDebt.note || '');
+      setStatus(updatedDebt.status);
+      setPayments(updatedDebt.payments || []);
+  }, []);
+
   useEffect(() => {
     if (debt) {
-      setType(debt.type);
-      setPerson(debt.person);
-      setAmount(debt.amount);
-      setCurrency(debt.currency);
-      setDueDate(parseISO(debt.dueDate));
-      setNote(debt.note || '');
-      setStatus(debt.status);
-      setPayments(debt.payments || []);
+      updateLocalState(debt);
     }
     setNewPaymentAmount('');
-  }, [debt, isOpen]);
+  }, [debt, isOpen, updateLocalState]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!debt || !person || !amount || !dueDate) {
+    if (!debt || !user || !person || !amount || !dueDate) {
         toast({
             title: "Missing Fields",
             description: "Please fill out all required fields.",
@@ -110,30 +117,32 @@ export function EditDebtDialog({
       payments,
     };
     
-    updateDebt(updatedDebt);
+    await updateDebt(user.uid, updatedDebt);
     
     toast({
         title: "Debt Updated",
         description: `The debt for "${person}" has been updated.`,
     });
-
+    
+    onDebtUpdated();
     onOpenChange(false);
   };
   
-  const handleDelete = () => {
-    if (debt) {
-      deleteDebt(debt.id);
+  const handleDelete = async () => {
+    if (debt && user) {
+      await deleteDebt(user.uid, debt.id);
       toast({
           title: 'Debt Deleted',
           description: 'The debt has been successfully deleted.',
           variant: 'destructive'
       });
+      onDebtUpdated();
       onOpenChange(false);
     }
   };
 
-  const handleAddPayment = () => {
-    if (debt && newPaymentAmount) {
+  const handleAddPayment = async () => {
+    if (debt && user && newPaymentAmount) {
       const paymentValue = Number(newPaymentAmount);
       if (paymentValue <= 0) {
         toast({ title: "Invalid Amount", description: "Payment must be positive.", variant: "destructive" });
@@ -143,10 +152,8 @@ export function EditDebtDialog({
         toast({ title: "Overpayment", description: "Payment cannot exceed remaining amount.", variant: "destructive" });
         return;
       }
-      addPaymentToDebt(debt.id, paymentValue);
-      // Refresh local state from the "source of truth"
-      setPayments([...debt.payments]);
-      setStatus(debt.status);
+      const updatedDebt = await addPaymentToDebt(user.uid, debt, paymentValue);
+      updateLocalState(updatedDebt);
       setNewPaymentAmount('');
       toast({ title: "Payment Added", description: "The partial payment has been recorded." });
     }
@@ -316,7 +323,7 @@ export function EditDebtDialog({
             </AlertDialog>
             <div className="flex gap-2">
                 <DialogClose asChild>
-                <Button type="button" variant="secondary" onClick={handleSubmit}>
+                <Button type="button" variant="secondary">
                     Cancel
                 </Button>
                 </DialogClose>

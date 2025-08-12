@@ -23,43 +23,55 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { getDefaultCurrency } from '@/services/settings-service';
 import { addDebt } from '@/services/debt-service';
 import { Textarea } from './ui/textarea';
+import { useAuth } from './auth-provider';
 
 interface AddDebtDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onDebtAdded: () => void;
 }
 
 export function AddDebtDialog({
   isOpen,
   onOpenChange,
+  onDebtAdded,
 }: AddDebtDialogProps) {
+  const { user } = useAuth();
   const [type, setType] = useState<'payable' | 'receivable'>('payable');
   const [person, setPerson] = useState('');
   const [amount, setAmount] = useState<number | ''>('');
-  const [currency, setCurrency] = useState(getDefaultCurrency());
+  const [currency, setCurrency] = useState('');
   const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
   const [note, setNote] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
+    async function fetchDefaultCurrency() {
+        if (user && isOpen) {
+            const defaultCurrency = await getDefaultCurrency(user.uid);
+            setCurrency(defaultCurrency);
+        }
+    }
+    
     if (isOpen) {
       // Reset form when dialog opens
       setType('payable');
       setPerson('');
       setAmount('');
-      setCurrency(getDefaultCurrency());
       setDueDate(new Date());
       setNote('');
+      fetchDefaultCurrency();
     }
-  }, [isOpen, getDefaultCurrency]);
+  }, [isOpen, user]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     if (!person || !amount || !dueDate) {
         toast({
             title: "Missing Fields",
@@ -69,7 +81,7 @@ export function AddDebtDialog({
         return;
     }
 
-    addDebt({
+    await addDebt(user.uid, {
       type,
       person,
       amount: Number(amount),
@@ -83,6 +95,7 @@ export function AddDebtDialog({
         description: `The debt for "${person}" has been created.`,
     });
 
+    onDebtAdded();
     onOpenChange(false);
   };
   

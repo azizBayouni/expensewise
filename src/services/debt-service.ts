@@ -2,7 +2,7 @@
 'use server';
 
 import db from './db';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import type { Debt, Payment } from '../lib/data';
 import { convertAmount } from './transaction-service';
 import { randomUUID } from 'crypto';
@@ -35,6 +35,16 @@ export async function getAllDebts(userId: string): Promise<Debt[]> {
     }));
 }
 
+export async function getDebtById(userId: string, debtId: string): Promise<Debt | null> {
+    const stmt = db.prepare('SELECT * FROM debts WHERE userId = ? AND id = ?');
+    const result = stmt.get(userId, debtId) as any;
+    if (!result) return null;
+    return {
+        ...result,
+        payments: JSON.parse(result.payments || '[]')
+    };
+}
+
 export async function updateDebt(userId: string, updatedDebt: Debt): Promise<void> {
   const { id, ...debtData } = updatedDebt;
   const stmt = db.prepare(`
@@ -59,8 +69,8 @@ export async function deleteDebt(userId: string, debtId: string): Promise<void> 
 export async function addPaymentToDebt(userId: string, debt: Debt, paymentAmount: number): Promise<Debt> {
     
     const newPayment: Payment = {
-        id: 'p' + (Math.random() * 1e9).toString(36),
-        date: format(new Date(), 'yyyy-MM-dd'),
+        id: randomUUID(),
+        date: new Date().toISOString(),
         amount: paymentAmount,
     };
     
@@ -74,7 +84,7 @@ export async function addPaymentToDebt(userId: string, debt: Debt, paymentAmount
         newStatus = 'partial';
     }
     
-    const updatedDebt = {
+    const updatedDebt: Debt = {
         ...debt,
         payments: updatedPayments,
         status: newStatus

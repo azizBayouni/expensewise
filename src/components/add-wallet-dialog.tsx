@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -28,41 +27,53 @@ import {
 } from '@/components/ui/select';
 import { emojiIcons, currencies } from '@/lib/data';
 import { addWallet } from '@/services/wallet-service';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { getDefaultCurrency } from '@/services/settings-service';
 import { ScrollArea } from './ui/scroll-area';
+import { useAuth } from './auth-provider';
 
 interface AddWalletDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onWalletAdded: () => void;
 }
 
 export function AddWalletDialog({
   isOpen,
   onOpenChange,
+  onWalletAdded,
 }: AddWalletDialogProps) {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('🏦');
-  const [currency, setCurrency] = useState(getDefaultCurrency());
+  const [currency, setCurrency] = useState('');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState('');
   const { toast } = useToast();
-
+  
   useEffect(() => {
+    async function fetchDefaultData() {
+        if (user) {
+            const defaultCurrency = await getDefaultCurrency(user.uid);
+            setCurrency(defaultCurrency);
+        }
+    }
+    
     if (isOpen) {
       // Reset form when dialog opens
       setName('');
       setIcon('🏦');
-      setCurrency(getDefaultCurrency());
       setIconSearch('');
+      fetchDefaultData();
     }
-  }, [isOpen]);
+  }, [isOpen, user]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     if (name) {
-      addWallet({
+      await addWallet(user.uid, {
         name,
         icon,
         currency,
@@ -71,6 +82,7 @@ export function AddWalletDialog({
           title: "Wallet Added",
           description: `The wallet "${name}" has been created.`,
       });
+      onWalletAdded();
       onOpenChange(false);
     }
   };
