@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { DollarSign, Wallet, TrendingUp, TrendingDown, PlusCircle } from 'lucide-react';
 import { Overview } from '@/components/overview';
 import { Button } from '@/components/ui/button';
-import { NewTransactionDialog } from '@/components/new-transaction-dialog';
+import { NewTransactionDialog } from '@/app/new-transaction-dialog';
 import { getDefaultCurrency } from '@/services/settings-service';
 import { MonthlyReportCard } from '@/components/monthly-report-card';
 import { TrendingReportCard } from '@/components/trending-report-card';
@@ -331,5 +331,3 @@ export default function Dashboard() {
     </>
   );
 }
-
-    

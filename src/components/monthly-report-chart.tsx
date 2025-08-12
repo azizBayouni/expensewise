@@ -30,18 +30,15 @@ export function MonthlyReportChart({ data, currency }: MonthlyReportChartProps) 
     
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
     
-    let cumulativeExpense = 0;
     const dailyData = daysInMonth.map(day => {
         const dayString = format(day, 'yyyy-MM-dd');
         const dailyExpenses = data
             .filter(t => t.type === 'expense' && format(parseISO(t.date), 'yyyy-MM-dd') === dayString)
             .reduce((sum, t) => sum + t.amount, 0);
         
-        cumulativeExpense += dailyExpenses;
-
         return {
             date: format(day, 'dd/MM'),
-            expense: cumulativeExpense > 0 ? cumulativeExpense : null, // Show null for days with no expense yet
+            expense: dailyExpenses > 0 ? dailyExpenses : null,
         };
     });
 
@@ -50,6 +47,16 @@ export function MonthlyReportChart({ data, currency }: MonthlyReportChartProps) 
   }, [data]);
 
   const yDomainMax = Math.max(...chartData.map(d => d.expense || 0)) * 1.2;
+
+  const formatCurrency = (value: number | string) => {
+    if (typeof value !== 'number') return value;
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currency,
+        notation: 'compact',
+        compactDisplay: 'short'
+    }).format(value);
+  }
 
   return (
     <ChartContainer config={chartConfig} className="w-full h-full">
@@ -79,7 +86,7 @@ export function MonthlyReportChart({ data, currency }: MonthlyReportChartProps) 
             axisLine={false}
             tickMargin={8}
             fontSize={12}
-            tickFormatter={(value) => `${value / 1000}K`}
+            tickFormatter={(value) => formatCurrency(value)}
             domain={[0, yDomainMax > 0 ? yDomainMax : 100]}
           />
           <Tooltip

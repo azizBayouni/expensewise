@@ -42,7 +42,7 @@ export default function Dashboard() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [defaultCurrency, setDefaultCurrency] = useState('USD');
+  const [defaultCurrency, setDefaultCurrency] = useState('SAR');
   const [overviewTimespan, setOverviewTimespan] = useState<'6m' | '12m' | 'ytd'>('6m');
   const [isLoading, setIsLoading] = useState(true);
   
@@ -54,12 +54,12 @@ export default function Dashboard() {
     if (!user) return;
     setIsLoading(true);
     try {
-        const [trans, wals, dts, currency] = await Promise.all([
+        const [trans, wals, dts] = await Promise.all([
             getAllTransactions(user.uid),
             getAllWallets(user.uid),
             getAllDebts(user.uid),
-            getDefaultCurrency(user.uid),
         ]);
+        const currency = await getDefaultCurrency(user.uid);
         setTransactions(trans);
         setWallets(wals);
         setDebts(dts);

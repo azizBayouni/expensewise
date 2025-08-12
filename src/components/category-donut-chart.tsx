@@ -4,11 +4,11 @@
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Text } from 'recharts';
 import { useMemo, useState, useEffect } from 'react';
-import { getDefaultCurrency } from '@/services/settings-service';
 import { Skeleton } from './ui/skeleton';
 
 interface CategoryDonutChartProps {
     data: { name: string; value: number; icon: string }[];
+    currency: string;
 }
 
 const COLORS = [
@@ -50,22 +50,20 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
 };
 
 
-export function CategoryDonutChart({ data }: CategoryDonutChartProps) {
+export function CategoryDonutChart({ data, currency }: CategoryDonutChartProps) {
   const [isClient, setIsClient] = useState(false);
-  const [defaultCurrency, setDefaultCurrency] = useState('');
 
   useEffect(() => {
     setIsClient(true);
-    setDefaultCurrency(getDefaultCurrency());
   }, []);
 
   const total = useMemo(() => data.reduce((acc, curr) => acc + curr.value, 0), [data]);
   
   const formatCurrency = (value: number) => {
-    if (!defaultCurrency) return '...';
+    if (!currency) return '...';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: defaultCurrency,
+      currency: currency,
       maximumFractionDigits: 0,
     }).format(value);
   }

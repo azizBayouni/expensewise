@@ -3,13 +3,13 @@
 'use client';
 
 import { useMemo } from 'react';
-import { getDefaultCurrency } from '@/services/settings-service';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 
 interface CategoryExpenseListProps {
   data: { name: string; value: number; icon: string }[];
+  currency: string;
   onCategoryClick?: (categoryName: string) => void;
 }
 
@@ -28,14 +28,13 @@ const COLORS = [
   '#f97316',
 ];
 
-export function CategoryExpenseList({ data, onCategoryClick }: CategoryExpenseListProps) {
-  const defaultCurrency = getDefaultCurrency();
+export function CategoryExpenseList({ data, currency, onCategoryClick }: CategoryExpenseListProps) {
   const searchParams = useSearchParams();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: defaultCurrency,
+      currency: currency,
     }).format(value);
   };
 

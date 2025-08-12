@@ -45,8 +45,13 @@ export function MonthlyReportCard() {
         if (user) {
             fetchData();
         }
+    }, [user, fetchData]);
+
+    useEffect(() => {
         const handleDataChange = () => {
-            if(user) fetchData();
+            if (user) {
+                fetchData()
+            }
         };
         window.addEventListener('transactionsUpdated', handleDataChange);
         window.addEventListener('storage', handleDataChange);

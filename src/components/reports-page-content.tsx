@@ -68,7 +68,7 @@ export function ReportsPageContent() {
             getAllTransactions(user.uid),
             getAllCategories(user.uid),
             getAllWallets(user.uid),
-            getDefaultCurrency(user.uid),
+            getDefaultCurrency(user.uid)
         ]);
         setTransactions(trans);
         setCategories(cats);
@@ -444,7 +444,7 @@ export function ReportsPageContent() {
                     </Link>
                     {expenseByCategory.length > 0 && (
                         <div>
-                            <CategoryExpenseList data={expenseByCategory} />
+                            <CategoryExpenseList data={expenseByCategory} currency={defaultCurrency}/>
                         </div>
                     )}
                 </TabsContent>
@@ -452,8 +452,8 @@ export function ReportsPageContent() {
                      <div className="w-full h-80 flex items-center justify-center">
                         {expenseByCategory.length > 0 ? (
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center w-full">
-                                <CategoryDonutChart data={expenseByCategory} />
-                                <CategoryExpenseList data={expenseByCategory} />
+                                <CategoryDonutChart data={expenseByCategory} currency={defaultCurrency}/>
+                                <CategoryExpenseList data={expenseByCategory} currency={defaultCurrency}/>
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
