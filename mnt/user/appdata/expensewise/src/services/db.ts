@@ -1,6 +1,5 @@
 
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 
@@ -12,17 +11,13 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-let db: any = null;
+// Initialize the database
+const db = new Database(DB_PATH);
 
-export async function getDb() {
-    if (db) return db;
-
-    const newDb = await open({
-        filename: DB_PATH,
-        driver: sqlite3.Database
-    });
-
-    await newDb.exec(`
+// Function to run migrations
+const runMigrations = () => {
+    // Create users table (even though we use a mock user, this is good practice)
+    db.exec(`
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             name TEXT,
@@ -30,7 +25,8 @@ export async function getDb() {
         );
     `);
 
-    await newDb.exec(`
+    // Create categories table
+    db.exec(`
         CREATE TABLE IF NOT EXISTS categories (
             id TEXT PRIMARY KEY,
             userId TEXT NOT NULL,
@@ -41,7 +37,8 @@ export async function getDb() {
         );
     `);
 
-    await newDb.exec(`
+    // Create wallets table
+    db.exec(`
         CREATE TABLE IF NOT EXISTS wallets (
             id TEXT PRIMARY KEY,
             userId TEXT NOT NULL,
@@ -53,7 +50,8 @@ export async function getDb() {
         );
     `);
     
-    await newDb.exec(`
+    // Create transactions table
+    db.exec(`
         CREATE TABLE IF NOT EXISTS transactions (
             id TEXT PRIMARY KEY,
             userId TEXT NOT NULL,
@@ -70,7 +68,8 @@ export async function getDb() {
         );
     `);
 
-    await newDb.exec(`
+    // Create debts table
+    db.exec(`
         CREATE TABLE IF NOT EXISTS debts (
             id TEXT PRIMARY KEY,
             userId TEXT NOT NULL,
@@ -85,7 +84,8 @@ export async function getDb() {
         );
     `);
 
-    await newDb.exec(`
+    // Create events table
+    db.exec(`
         CREATE TABLE IF NOT EXISTS events (
             id TEXT PRIMARY KEY,
             userId TEXT NOT NULL,
@@ -95,7 +95,8 @@ export async function getDb() {
         );
     `);
 
-    await newDb.exec(`
+     // Create settings table
+    db.exec(`
         CREATE TABLE IF NOT EXISTS settings (
             userId TEXT PRIMARY KEY,
             defaultCurrency TEXT,
@@ -105,6 +106,17 @@ export async function getDb() {
         );
     `);
     
-    db = newDb;
-    return db;
-}
+    // Ensure dev user exists
+    const userStmt = db.prepare('SELECT id FROM users WHERE id = ?');
+    const user = userStmt.get('dev-user');
+    if (!user) {
+        const insertUser = db.prepare('INSERT INTO users (id, name, email) VALUES (?, ?, ?)');
+        insertUser.run('dev-user', 'Dev User', 'dev@expensewise.app');
+    }
+};
+
+runMigrations();
+
+export default db;
+
+    

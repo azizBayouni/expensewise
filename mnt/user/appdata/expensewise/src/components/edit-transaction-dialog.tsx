@@ -398,9 +398,9 @@ export function EditTransactionDialog({
                     <SelectValue placeholder="Select a wallet" />
                 </SelectTrigger>
                 <SelectContent>
-                    {allWallets.map((wallet) => (
-                    <SelectItem key={wallet.id} value={wallet.name}>
-                        {wallet.name} ({wallet.currency})
+                    {allWallets.map((w) => (
+                    <SelectItem key={w.id} value={w.name}>
+                        {w.name} ({w.currency})
                     </SelectItem>
                     ))}
                 </SelectContent>
@@ -428,8 +428,8 @@ export function EditTransactionDialog({
                     <SelectValue placeholder="Currency" />
                   </SelectTrigger>
                   <SelectContent>
-                    {currencies.map((c, index) => (
-                      <SelectItem key={`${c}-${index}`} value={c}>
+                    {currencies.map((c) => (
+                      <SelectItem key={c} value={c}>
                         {c}
                       </SelectItem>
                     ))}
@@ -524,7 +524,7 @@ export function EditTransactionDialog({
                 <Label htmlFor="attachments">Attachments</Label>
                  <div className="space-y-2 pt-2">
                     {attachments.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
+                        <div key={file.url} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
                             <a 
                                 href="#"
                                 onClick={(e) => {
@@ -542,7 +542,7 @@ export function EditTransactionDialog({
                         </div>
                     ))}
                     {newAttachments.map((file, index) => (
-                         <div key={index} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
+                         <div key={`${file.name}-${index}`} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
                             <span className="truncate flex items-center gap-2">
                                 <Paperclip className="h-4 w-4"/>
                                 {file.name}
@@ -604,3 +604,5 @@ export function EditTransactionDialog({
     </Dialog>
   );
 }
+
+    
