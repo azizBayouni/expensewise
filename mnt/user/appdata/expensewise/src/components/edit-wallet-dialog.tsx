@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -191,6 +192,7 @@ export function EditWalletDialog({
                     selected={linkedCategoryIds}
                     onChange={setLinkedCategoryIds}
                     placeholder="All categories"
+                    allCategories={allCategories}
                 />
                  <p className="text-xs text-muted-foreground">
                     If no categories are selected, all will be available for transactions with this wallet.

@@ -604,5 +604,3 @@ export function EditTransactionDialog({
     </Dialog>
   );
 }
-
-    
