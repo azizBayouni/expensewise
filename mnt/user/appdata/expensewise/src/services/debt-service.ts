@@ -1,7 +1,7 @@
 
 'use server';
 
-import db from './db';
+import { getDb } from './db';
 import { format, parseISO } from 'date-fns';
 import type { Debt, Payment } from '../lib/data';
 import { convertAmount } from './transaction-service';
@@ -16,19 +16,19 @@ export async function addDebt(userId: string, newDebtData: Omit<Debt, 'id' | 'st
         payments: [],
     };
     
-    const stmt = db.prepare(`
+    const db = await getDb();
+    await db.run(`
         INSERT INTO debts (id, userId, type, person, amount, currency, dueDate, status, note, payments) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(newDebt.id, userId, newDebt.type, newDebt.person, newDebt.amount, newDebt.currency, newDebt.dueDate, newDebt.status, newDebt.note, JSON.stringify(newDebt.payments));
+    `, newDebt.id, userId, newDebt.type, newDebt.person, newDebt.amount, newDebt.currency, newDebt.dueDate, newDebt.status, newDebt.note, JSON.stringify(newDebt.payments));
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('debtsUpdated'));
     }
 }
 
 export async function getAllDebts(userId: string): Promise<Debt[]> {
-    const stmt = db.prepare('SELECT * FROM debts WHERE userId = ?');
-    const results = stmt.all(userId) as any[];
+    const db = await getDb();
+    const results = await db.all('SELECT * FROM debts WHERE userId = ?', userId);
     return results.map(row => ({
         ...row,
         payments: JSON.parse(row.payments || '[]')
@@ -36,8 +36,8 @@ export async function getAllDebts(userId: string): Promise<Debt[]> {
 }
 
 export async function getDebtById(userId: string, debtId: string): Promise<Debt | null> {
-    const stmt = db.prepare('SELECT * FROM debts WHERE userId = ? AND id = ?');
-    const result = stmt.get(userId, debtId) as any;
+    const db = await getDb();
+    const result = await db.get('SELECT * FROM debts WHERE userId = ? AND id = ?', userId, debtId);
     if (!result) return null;
     return {
         ...result,
@@ -47,20 +47,20 @@ export async function getDebtById(userId: string, debtId: string): Promise<Debt 
 
 export async function updateDebt(userId: string, updatedDebt: Debt): Promise<void> {
   const { id, ...debtData } = updatedDebt;
-  const stmt = db.prepare(`
+  const db = await getDb();
+  await db.run(`
     UPDATE debts 
     SET type = ?, person = ?, amount = ?, currency = ?, dueDate = ?, status = ?, note = ?, payments = ?
     WHERE id = ? AND userId = ?
-  `);
-  stmt.run(debtData.type, debtData.person, debtData.amount, debtData.currency, debtData.dueDate, debtData.status, debtData.note, JSON.stringify(debtData.payments), id, userId);
+  `, debtData.type, debtData.person, debtData.amount, debtData.currency, debtData.dueDate, debtData.status, debtData.note, JSON.stringify(debtData.payments), id, userId);
    if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('debtsUpdated'));
     }
 }
 
 export async function deleteDebt(userId: string, debtId: string): Promise<void> {
-    const stmt = db.prepare('DELETE FROM debts WHERE id = ? AND userId = ?');
-    stmt.run(debtId, userId);
+    const db = await getDb();
+    await db.run('DELETE FROM debts WHERE id = ? AND userId = ?', debtId, userId);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('debtsUpdated'));
     }
@@ -100,27 +100,28 @@ export async function addPaymentToDebt(userId: string, debtId: string, paymentAm
 
 export async function convertAllDebts(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
     const allDebts = await getAllDebts(userId);
-    const updateStmt = db.prepare('UPDATE debts SET amount = ?, currency = ?, payments = ? WHERE id = ?');
+    const db = await getDb();
 
-    const updateTransaction = db.transaction((debts) => {
-        for (const debt of debts) {
+    await db.run('BEGIN TRANSACTION');
+    try {
+        for (const debt of allDebts) {
             if (debt.currency === fromCurrency) {
-                const convertedAmount = convertAmount(userId, debt.amount, fromCurrency, toCurrency);
+                const convertedAmount = await convertAmount(userId, debt.amount, fromCurrency, toCurrency);
                 
-                const convertedPayments = debt.payments.map(payment => ({
+                const convertedPayments = await Promise.all(debt.payments.map(async (payment) => ({
                     ...payment,
-                    amount: convertAmount(userId, payment.amount, fromCurrency, toCurrency),
-                }));
+                    amount: await convertAmount(userId, payment.amount, fromCurrency, toCurrency),
+                })));
 
-                Promise.all([convertedAmount, Promise.all(convertedPayments.map(p=>p.amount))]).then(([newAmount, newPaymentAmounts]) => {
-                     const newPayments = convertedPayments.map((p, i) => ({...p, amount: newPaymentAmounts[i]}))
-                     updateStmt.run(newAmount, toCurrency, JSON.stringify(newPayments), debt.id);
-                });
+                await db.run('UPDATE debts SET amount = ?, currency = ?, payments = ? WHERE id = ?', convertedAmount, toCurrency, JSON.stringify(convertedPayments), debt.id);
             }
         }
-    });
+        await db.run('COMMIT');
+    } catch (e) {
+        await db.run('ROLLBACK');
+        throw e;
+    }
 
-    updateTransaction(allDebts);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('debtsUpdated'));
     }

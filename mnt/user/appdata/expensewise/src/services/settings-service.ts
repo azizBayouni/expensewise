@@ -1,12 +1,12 @@
 
 'use server';
 
-import db from './db';
+import { getDb } from './db';
 
 export async function getDefaultCurrency(userId: string): Promise<string> {
+  const db = await getDb();
   try {
-    const stmt = db.prepare('SELECT defaultCurrency FROM settings WHERE userId = ?');
-    const result = stmt.get(userId) as { defaultCurrency: string } | undefined;
+    const result = await db.get('SELECT defaultCurrency FROM settings WHERE userId = ?', userId);
     return result?.defaultCurrency || 'USD';
   } catch (error) {
     console.error("Error fetching default currency:", error);
@@ -15,14 +15,14 @@ export async function getDefaultCurrency(userId: string): Promise<string> {
 }
 
 export async function setDefaultCurrency(userId: string, currency: string): Promise<void> {
+  const db = await getDb();
   try {
-    const stmt = db.prepare(`
+    await db.run(`
         INSERT INTO settings (userId, defaultCurrency) 
         VALUES (?, ?)
         ON CONFLICT(userId) 
         DO UPDATE SET defaultCurrency = excluded.defaultCurrency;
-    `);
-    stmt.run(userId, currency);
+    `, userId, currency);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('storage'));
     }

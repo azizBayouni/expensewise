@@ -1,5 +1,6 @@
 
-import Database from 'better-sqlite3';
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
 import fs from 'fs';
 import path from 'path';
 
@@ -11,13 +12,17 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-// Initialize the database
-const db = new Database(DB_PATH);
+let db: any = null;
 
-// Function to run migrations
-const runMigrations = () => {
-    // Create users table (even though we use a mock user, this is good practice)
-    db.exec(`
+export async function getDb() {
+    if (db) return db;
+
+    const newDb = await open({
+        filename: DB_PATH,
+        driver: sqlite3.Database
+    });
+
+    await newDb.exec(`
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             name TEXT,
@@ -25,8 +30,7 @@ const runMigrations = () => {
         );
     `);
 
-    // Create categories table
-    db.exec(`
+    await newDb.exec(`
         CREATE TABLE IF NOT EXISTS categories (
             id TEXT PRIMARY KEY,
             userId TEXT NOT NULL,
@@ -37,8 +41,7 @@ const runMigrations = () => {
         );
     `);
 
-    // Create wallets table
-    db.exec(`
+    await newDb.exec(`
         CREATE TABLE IF NOT EXISTS wallets (
             id TEXT PRIMARY KEY,
             userId TEXT NOT NULL,
@@ -50,8 +53,7 @@ const runMigrations = () => {
         );
     `);
     
-    // Create transactions table
-    db.exec(`
+    await newDb.exec(`
         CREATE TABLE IF NOT EXISTS transactions (
             id TEXT PRIMARY KEY,
             userId TEXT NOT NULL,
@@ -68,8 +70,7 @@ const runMigrations = () => {
         );
     `);
 
-    // Create debts table
-    db.exec(`
+    await newDb.exec(`
         CREATE TABLE IF NOT EXISTS debts (
             id TEXT PRIMARY KEY,
             userId TEXT NOT NULL,
@@ -84,8 +85,7 @@ const runMigrations = () => {
         );
     `);
 
-    // Create events table
-    db.exec(`
+    await newDb.exec(`
         CREATE TABLE IF NOT EXISTS events (
             id TEXT PRIMARY KEY,
             userId TEXT NOT NULL,
@@ -95,8 +95,7 @@ const runMigrations = () => {
         );
     `);
 
-     // Create settings table
-    db.exec(`
+    await newDb.exec(`
         CREATE TABLE IF NOT EXISTS settings (
             userId TEXT PRIMARY KEY,
             defaultCurrency TEXT,
@@ -105,8 +104,7 @@ const runMigrations = () => {
             theme TEXT
         );
     `);
-};
-
-runMigrations();
-
-export default db;
+    
+    db = newDb;
+    return db;
+}

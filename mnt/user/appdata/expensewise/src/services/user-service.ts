@@ -1,7 +1,7 @@
 
 'use server';
 
-import db from './db';
+import { getDb } from './db';
 
 type User = {
     uid: string;
@@ -10,26 +10,24 @@ type User = {
 }
 
 export async function getCurrentUser(): Promise<User | null> {
+  const db = await getDb();
   // In a real app, you'd fetch this from the DB based on a session.
   // For this mock setup, we'll ensure the dev user exists.
-  const stmt = db.prepare('SELECT id as uid, name as displayName, email FROM users WHERE id = ?');
-  let user = stmt.get('dev-user') as User | undefined;
+  let user = await db.get('SELECT id as uid, name as displayName, email FROM users WHERE id = ?', 'dev-user');
 
   if (!user) {
-    const insertStmt = db.prepare('INSERT INTO users (id, name, email) VALUES (?, ?, ?)');
-    insertStmt.run('dev-user', 'Dev User', 'dev@expensewise.app');
+    await db.run('INSERT INTO users (id, name, email) VALUES (?, ?, ?)', 'dev-user', 'Dev User', 'dev@expensewise.app');
     user = { uid: 'dev-user', displayName: 'Dev User', email: 'dev@expensewise.app' };
   }
   
   return user;
 }
 
-
 export async function updateUserProfile(profile: { displayName?: string }): Promise<void> {
   if (profile.displayName) {
+    const db = await getDb();
     try {
-      const stmt = db.prepare('UPDATE users SET name = ? WHERE id = ?');
-      stmt.run(profile.displayName, 'dev-user');
+      await db.run('UPDATE users SET name = ? WHERE id = ?', profile.displayName, 'dev-user');
       // Dispatch event for client-side updates if needed
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('profileUpdated'));
