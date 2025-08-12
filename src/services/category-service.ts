@@ -24,7 +24,7 @@ export async function updateCategory(userId: string, updatedCategory: Category):
 export async function addCategory(userId: string, newCategoryData: Omit<Category, 'id' | 'userId'>): Promise<void> {
     const allCategories = await getAllCategories(userId);
     if (newCategoryData.parentId) {
-        const parentDepth = await getCategoryDepth(newCategoryData.parentId, allCategories);
+        const parentDepth = getCategoryDepth(newCategoryData.parentId, allCategories);
         if (parentDepth >= 2) {
             throw new Error("Cannot add a category beyond 3 levels deep.");
         }

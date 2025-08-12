@@ -67,7 +67,6 @@ export async function deleteDebt(userId: string, debtId: string): Promise<void> 
 }
 
 export async function addPaymentToDebt(userId: string, debt: Debt, paymentAmount: number): Promise<Debt> {
-    
     const newPayment: Payment = {
         id: randomUUID(),
         date: new Date().toISOString(),
@@ -84,7 +83,7 @@ export async function addPaymentToDebt(userId: string, debt: Debt, paymentAmount
         newStatus = 'partial';
     }
     
-    const updatedDebt: Debt = {
+    const updatedDebt = {
         ...debt,
         payments: updatedPayments,
         status: newStatus
@@ -96,27 +95,31 @@ export async function addPaymentToDebt(userId: string, debt: Debt, paymentAmount
 
 export async function convertAllDebts(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
     const allDebts = await getAllDebts(userId);
-    const updateStmt = db.prepare('UPDATE debts SET amount = ?, currency = ?, payments = ? WHERE id = ?');
+    
+    const debtsToConvert = allDebts.filter(d => d.currency === fromCurrency);
 
-    const updateTransaction = db.transaction((debts) => {
-        for (const debt of debts) {
-            if (debt.currency === fromCurrency) {
-                const convertedAmount = convertAmount(userId, debt.amount, fromCurrency, toCurrency);
-                
-                const convertedPayments = debt.payments.map(payment => ({
-                    ...payment,
-                    amount: convertAmount(userId, payment.amount, fromCurrency, toCurrency),
-                }));
+    const conversionPromises = debtsToConvert.map(async (debt) => {
+        const convertedAmount = await convertAmount(userId, debt.amount, fromCurrency, toCurrency);
+        
+        const convertedPayments = await Promise.all(
+            debt.payments.map(async (payment) => ({
+                ...payment,
+                amount: await convertAmount(userId, payment.amount, fromCurrency, toCurrency),
+            }))
+        );
 
-                Promise.all([convertedAmount, Promise.all(convertedPayments.map(p=>p.amount))]).then(([newAmount, newPaymentAmounts]) => {
-                     const newPayments = convertedPayments.map((p, i) => ({...p, amount: newPaymentAmounts[i]}))
-                     updateStmt.run(newAmount, toCurrency, JSON.stringify(newPayments), debt.id);
-                });
-            }
-        }
+        return { ...debt, amount: convertedAmount, currency: toCurrency, payments: convertedPayments };
     });
 
-    updateTransaction(allDebts);
+    const convertedDebts = await Promise.all(conversionPromises);
+
+    const updateStmt = db.prepare('UPDATE debts SET amount = ?, currency = ?, payments = ? WHERE id = ?');
+    const updateTransaction = db.transaction((debts) => {
+        for (const debt of debts) updateStmt.run(debt.amount, debt.currency, JSON.stringify(debt.payments), debt.id);
+    });
+    updateTransaction(convertedDebts);
+
+
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('debtsUpdated'));
     }

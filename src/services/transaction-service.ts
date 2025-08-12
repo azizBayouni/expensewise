@@ -22,7 +22,7 @@ async function uploadAttachment(userId: string, transactionId: string, file: Fil
     return { name: file.name, url };
 }
 
-export async function addTransaction(userId: string, newTransaction: Omit<AppTransaction, 'id'>, newAttachments: File[]): Promise<void> {
+export async function addTransaction(userId: string, newTransaction: Omit<AppTransaction, 'id' | 'userId'>, newAttachments: File[]): Promise<void> {
     const transactionId = randomUUID();
     let attachmentUrls: {name: string, url: string}[] = [];
 
@@ -33,7 +33,7 @@ export async function addTransaction(userId: string, newTransaction: Omit<AppTra
     }
     
     const { attachments, ...transactionData } = newTransaction;
-
+    
     const stmt = db.prepare(`
         INSERT INTO transactions (id, userId, date, amount, type, category, wallet, description, currency, attachments, eventId, excludeFromReport)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -45,16 +45,19 @@ export async function addTransaction(userId: string, newTransaction: Omit<AppTra
 }
 
 export async function addTransactions(userId: string, newTransactions: Omit<AppTransaction, 'id' | 'userId' | 'attachments'>[]): Promise<void> {
-    const stmt = db.prepare(`
+    const insertStmt = db.prepare(`
         INSERT INTO transactions (id, userId, date, amount, type, category, wallet, description, currency, eventId, excludeFromReport)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
+
     const insertMany = db.transaction((transactions) => {
         for (const t of transactions) {
-            stmt.run(randomUUID(), userId, t.date, t.amount, t.type, t.category, t.wallet, t.description, t.currency, t.eventId, t.excludeFromReport ? 1 : 0);
+            insertStmt.run(randomUUID(), userId, t.date, t.amount, t.type, t.category, t.wallet, t.description, t.currency, t.eventId, t.excludeFromReport ? 1 : 0);
         }
     });
+
     insertMany(newTransactions);
+    
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('transactionsUpdated'));
     }
@@ -163,19 +166,24 @@ export async function convertAmount(userId: string, amount: number, fromCurrency
 
 export async function convertAllTransactions(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
     const allTransactions = await getAllTransactions(userId);
-    const updateStmt = db.prepare('UPDATE transactions SET amount = ?, currency = ? WHERE id = ?');
     
-    const updateTransaction = db.transaction((transactions) => {
-        for (const transaction of transactions) {
-            if (transaction.currency === fromCurrency) {
-                convertAmount(userId, transaction.amount, fromCurrency, toCurrency).then(convertedAmount => {
-                    updateStmt.run(convertedAmount, toCurrency, transaction.id);
-                });
-            }
-        }
+    const transactionsToConvert = allTransactions.filter(t => t.currency === fromCurrency);
+
+    const conversionPromises = transactionsToConvert.map(async (transaction) => {
+        const convertedAmount = await convertAmount(userId, transaction.amount, fromCurrency, toCurrency);
+        return { ...transaction, amount: convertedAmount, currency: toCurrency };
     });
 
-    updateTransaction(allTransactions);
+    const convertedTransactions = await Promise.all(conversionPromises);
+
+    const updateStmt = db.prepare('UPDATE transactions SET amount = ?, currency = ? WHERE id = ?');
+
+    const updateMany = db.transaction((transactions) => {
+        for (const trans of transactions) updateStmt.run(trans.amount, trans.currency, trans.id);
+    });
+    
+    updateMany(convertedTransactions);
+
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('transactionsUpdated'));
     }
