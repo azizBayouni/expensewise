@@ -1,12 +1,12 @@
 
-
 'use server';
 
-import db from './db';
+import { getDb } from './db';
 import type { Category } from '../lib/data';
 import { randomUUID } from 'crypto';
 
 export async function getAllCategories(userId: string): Promise<Category[]> {
+    const db = await getDb();
     const stmt = db.prepare('SELECT * FROM categories WHERE userId = ?');
     const categories = stmt.all(userId) as Category[];
     return categories;
@@ -26,6 +26,7 @@ export async function getCategoryDepth(categoryId: string | null, allCategories:
 
 export async function updateCategory(userId: string, updatedCategory: Category): Promise<void> {
     const { id, name, type, parentId, icon } = updatedCategory;
+    const db = await getDb();
     const stmt = db.prepare('UPDATE categories SET name = ?, type = ?, parentId = ?, icon = ? WHERE id = ? AND userId = ?');
     stmt.run(name, type, parentId, icon, id, userId);
     if (typeof window !== 'undefined') {
@@ -47,7 +48,7 @@ export async function addCategory(userId: string, newCategoryData: Omit<Category
         id: randomUUID(),
         userId
     };
-
+    const db = await getDb();
     const stmt = db.prepare('INSERT INTO categories (id, userId, name, type, parentId, icon) VALUES (?, ?, ?, ?, ?, ?)');
     stmt.run(newCategory.id, newCategory.userId, newCategory.name, newCategory.type, newCategory.parentId, newCategory.icon);
     if (typeof window !== 'undefined') {
@@ -56,6 +57,7 @@ export async function addCategory(userId: string, newCategoryData: Omit<Category
 }
 
 export async function deleteCategory(userId: string, categoryId: string): Promise<void> {
+    const db = await getDb();
     const allCategories = await getAllCategories(userId);
     const categoryToDelete = allCategories.find(c => c.id === categoryId);
     if (!categoryToDelete) {
@@ -94,6 +96,7 @@ export async function deleteCategory(userId: string, categoryId: string): Promis
 }
 
 export async function deleteAllCategories(userId: string): Promise<void> {
+    const db = await getDb();
     const checkStmt = db.prepare('SELECT 1 FROM transactions WHERE userId = ? LIMIT 1');
     const hasTransactions = checkStmt.get(userId);
 
