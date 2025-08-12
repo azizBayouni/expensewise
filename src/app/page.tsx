@@ -35,15 +35,14 @@ import { getAllDebts } from '@/services/debt-service';
 import { getWalletBalance } from '@/lib/data';
 import type { Transaction, Wallet as WalletType, Debt } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-
-// This will be the placeholder user ID for all Firestore operations.
-const MOCK_USER_ID = 'dev-user';
+import { useAuth } from '@/components/auth-provider';
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [defaultCurrency, setDefaultCurrency] = useState('USD');
+  const [defaultCurrency, setDefaultCurrency] = useState('SAR');
   const [overviewTimespan, setOverviewTimespan] = useState<'6m' | '12m' | 'ytd'>('6m');
   const [isLoading, setIsLoading] = useState(true);
   
@@ -52,30 +51,36 @@ export default function Dashboard() {
   const [debts, setDebts] = useState<Debt[]>([]);
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setIsLoading(true);
     try {
-        const [trans, wals, dts] = await Promise.all([
-            getAllTransactions(MOCK_USER_ID),
-            getAllWallets(MOCK_USER_ID),
-            getAllDebts(MOCK_USER_ID),
+        const [trans, wals, dts, currency] = await Promise.all([
+            getAllTransactions(user.uid),
+            getAllWallets(user.uid),
+            getAllDebts(user.uid),
+            getDefaultCurrency(user.uid),
         ]);
         setTransactions(trans);
         setWallets(wals);
         setDebts(dts);
-        setDefaultCurrency(await getDefaultCurrency(MOCK_USER_ID));
+        setDefaultCurrency(currency);
     } catch (error) {
         console.error("Error fetching dashboard data:", error);
     } finally {
         setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (user) {
+      fetchData();
+    }
+  }, [user, fetchData]);
   
   useEffect(() => {
-    const handleDataChange = () => fetchData();
+    const handleDataChange = () => {
+        if (user) fetchData();
+    };
     window.addEventListener('transactionsUpdated', handleDataChange);
     window.addEventListener('walletsUpdated', handleDataChange);
     window.addEventListener('debtsUpdated', handleDataChange);
@@ -87,7 +92,7 @@ export default function Dashboard() {
         window.removeEventListener('debtsUpdated', handleDataChange);
         window.removeEventListener('storage', handleDataChange);
     };
-  }, [fetchData]);
+  }, [fetchData, user]);
 
 
   const dashboardData = useMemo(() => {
@@ -95,7 +100,8 @@ export default function Dashboard() {
     const thisMonthTransactions = reportableTransactions.filter(t => isThisMonth(parseISO(t.date)));
 
     const totalBalance = wallets.reduce((sum, wallet) => {
-        return sum + getWalletBalance(wallet, transactions);
+        const walletTransactions = transactions.filter(t => t.wallet === wallet.name);
+        return sum + getWalletBalance(wallet, walletTransactions);
     }, 0);
 
     const monthlyIncome = thisMonthTransactions
@@ -125,8 +131,8 @@ export default function Dashboard() {
         activeDebtsAmount,
         activePayablesCount: activePayables.length,
         activeReceivablesCount: activeReceivables.length,
-        recentTransactions: reportableTransactions.slice(0, 5),
-        totalTransactionsThisMonth: reportableTransactions.length,
+        recentTransactions: [...transactions].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()).slice(0, 5),
+        totalTransactionsThisMonth: thisMonthTransactions.length,
         thisMonthQuery: `from=${monthStart}&to=${monthEnd}`
     }
   }, [transactions, wallets, debts]);
@@ -277,7 +283,7 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle>Recent Transactions</CardTitle>
                 <CardDescription>
-                  You made {dashboardData.totalTransactionsThisMonth} transactions this month.
+                  You have {dashboardData.recentTransactions.length} recent transactions.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -309,7 +315,11 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-      <NewTransactionDialog isOpen={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onTransactionAdded={fetchData} />
+      <NewTransactionDialog 
+        isOpen={isAddDialogOpen} 
+        onOpenChange={setIsAddDialogOpen}
+        onTransactionAdded={fetchData}
+      />
       {selectedTransaction && (
         <EditTransactionDialog 
             isOpen={isEditDialogOpen} 
@@ -321,3 +331,5 @@ export default function Dashboard() {
     </>
   );
 }
+
+    

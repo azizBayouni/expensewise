@@ -13,21 +13,13 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { currencies } from "@/lib/data"
 import { FileUp, Download, UploadCloud, Moon, Sun, Trash2, HardDriveDownload, HardDriveUpload, KeyRound, CheckCircle, XCircle } from "lucide-react"
-import { getDefaultCurrency, setDefaultCurrency } from "@/services/settings-service";
+import { getDefaultCurrency } from "@/services/settings-service";
 import { useToast } from "@/hooks/use-toast";
 import { addTransactions, deleteAllTransactions as deleteAllTransactionsService, convertAllTransactions } from "@/services/transaction-service";
 import { convertAllWallets, getAllWallets, setDefaultWallet, getDefaultWallet } from "@/services/wallet-service";
 import { convertAllDebts, getAllDebts } from "@/services/debt-service";
-import { ConfirmCurrencyChangeDialog } from "@/components/confirm-currency-change-dialog";
 import { updateUserProfile, getCurrentUser } from "@/services/user-service";
 import type { Transaction, Category, Wallet, Debt, Event } from "@/lib/data";
 import * as XLSX from 'xlsx';
@@ -49,9 +41,6 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [currentDefaultCurrency, setCurrentDefaultCurrency] = useState('');
-  const [selectedCurrency, setSelectedCurrency] = useState('');
-  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isDeleteAllTransactionsDialogOpen, setIsDeleteAllTransactionsDialogOpen] = useState(false);
   const [isDeleteAllCategoriesDialogOpen, setIsDeleteAllCategoriesDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -69,10 +58,6 @@ export default function SettingsPage() {
     if (user) {
         setName(user.displayName || '');
         setEmail(user.email || '');
-        getDefaultCurrency(user.uid).then(currency => {
-            setCurrentDefaultCurrency(currency);
-            setSelectedCurrency(currency);
-        });
         getExchangeRateApiKey(user.uid).then(key => {
             setExchangeRateKey(key || '');
             if (key) {
@@ -101,66 +86,6 @@ export default function SettingsPage() {
             variant: "destructive"
         })
     }
-  };
-
-  const handleCurrencySaveClick = () => {
-    if (selectedCurrency !== currentDefaultCurrency) {
-      setIsConfirmDialogOpen(true);
-    } else {
-      toast({
-        title: "No Changes",
-        description: "The default currency is already set to " + selectedCurrency,
-      });
-    }
-  };
-
-  const handleConfirmation = async (conversionType: 'convert' | 'keep') => {
-    if (!user) return;
-    const oldCurrency = currentDefaultCurrency;
-    
-    if (conversionType === 'convert') {
-      const apiKey = await getExchangeRateApiKey(user.uid);
-      if (!apiKey) {
-        toast({
-          title: "API Key Required",
-          description: "An ExchangeRate-API key is required for currency conversion. Please add one in the settings.",
-          variant: "destructive",
-        });
-        return;
-      }
-      try {
-        toast({
-          title: "Conversion in Progress",
-          description: "Please wait while we convert your data...",
-        });
-        await convertAllTransactions(user.uid, oldCurrency, selectedCurrency);
-        await convertAllWallets(user.uid, oldCurrency, selectedCurrency);
-        await convertAllDebts(user.uid, oldCurrency, selectedCurrency);
-        toast({
-          title: "Conversion Successful",
-          description: `All financial data has been converted to ${selectedCurrency}.`,
-        });
-      } catch (error: any) {
-        console.error("Conversion failed:", error);
-        toast({
-          title: "Conversion Failed",
-          description: error.message || "Could not convert all data. Please try again.",
-          variant: "destructive",
-        });
-        return; 
-      }
-    }
-    
-    await setDefaultCurrency(user.uid, selectedCurrency);
-    setCurrentDefaultCurrency(selectedCurrency);
-    
-    toast({
-      title: "Settings Saved",
-      description: `Default currency set to ${selectedCurrency}.`,
-    });
-    // A full page reload would be a simple way to force all components to re-render
-    // with the new currency. A more sophisticated app might use a global state manager.
-    window.location.reload();
   };
 
   const handleDownloadTemplate = () => {
@@ -561,7 +486,6 @@ export default function SettingsPage() {
             }
             
             // --- RESTORE SETTINGS ---
-            if (data.settings.defaultCurrency) await setDefaultCurrency(user.uid, data.settings.defaultCurrency);
             if (data.settings.theme) setAppTheme(data.settings.theme);
             if (data.settings.defaultWallet) await setDefaultWallet(user.uid, data.settings.defaultWallet);
             if (data.settings.travelMode && data.settings.travelMode.isActive) {
@@ -699,29 +623,6 @@ export default function SettingsPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Currency Settings</CardTitle>
-              <CardDescription>Choose your default currency.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label htmlFor="default-currency">Default Currency</Label>
-                <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
-                  <SelectTrigger className="w-full md:w-1/3">
-                    <SelectValue placeholder="Select a currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-            <CardFooter className="border-t px-6 py-4">
-              <Button onClick={handleCurrencySaveClick}>Save</Button>
-            </CardFooter>
           </Card>
           
           <Card>
@@ -896,13 +797,6 @@ export default function SettingsPage() {
 
         </div>
       </div>
-      <ConfirmCurrencyChangeDialog
-        isOpen={isConfirmDialogOpen}
-        onOpenChange={setIsConfirmDialogOpen}
-        oldCurrency={currentDefaultCurrency}
-        newCurrency={selectedCurrency}
-        onConfirm={handleConfirmation}
-      />
        <DeleteAllTransactionsDialog
         isOpen={isDeleteAllTransactionsDialogOpen}
         onOpenChange={setIsDeleteAllTransactionsDialogOpen}

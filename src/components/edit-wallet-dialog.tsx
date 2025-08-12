@@ -30,7 +30,7 @@ import { emojiIcons, type Wallet, currencies, type Category, getCategoryDepth } 
 import { updateWallet } from '@/services/wallet-service';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { MultiSelect, type MultiSelectOption } from './ui/multi-select';
+import { MultiSelect } from './ui/multi-select';
 import { ScrollArea } from './ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { getAllCategories } from '@/services/category-service';
@@ -40,12 +40,14 @@ interface EditWalletDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   wallet: Wallet | null;
+  onWalletUpdated: () => void;
 }
 
 export function EditWalletDialog({
   isOpen,
   onOpenChange,
   wallet,
+  onWalletUpdated,
 }: EditWalletDialogProps) {
   const { user } = useAuth();
   const [name, setName] = useState('');
@@ -76,9 +78,9 @@ export function EditWalletDialog({
     }
   }, [wallet, isOpen, fetchData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (wallet && user) {
+    if (wallet && user && name) {
       const updatedWallet: Wallet = {
         ...wallet,
         name,
@@ -86,11 +88,12 @@ export function EditWalletDialog({
         currency,
         linkedCategoryIds,
       };
-      updateWallet(user.uid, updatedWallet);
+      await updateWallet(user.uid, updatedWallet);
       toast({
           title: "Wallet Updated",
           description: `The wallet "${name}" has been saved.`,
       });
+      onWalletUpdated();
       onOpenChange(false);
     }
   };
@@ -178,9 +181,6 @@ export function EditWalletDialog({
                     </ScrollArea>
                   </SelectContent>
                 </Select>
-                 <p className="text-xs text-muted-foreground">
-                    Changing the currency will not convert the balance.
-                </p>
             </div>
              <div className="space-y-2">
                 <Label htmlFor="linked-categories">Linked Categories</Label>
@@ -189,6 +189,7 @@ export function EditWalletDialog({
                     selected={linkedCategoryIds}
                     onChange={setLinkedCategoryIds}
                     placeholder="All categories"
+                    allCategories={allCategories}
                 />
                  <p className="text-xs text-muted-foreground">
                     If no categories are selected, all will be available for transactions with this wallet.
@@ -201,7 +202,7 @@ export function EditWalletDialog({
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit">Save Changes</Button>
+            <Button type="submit" disabled={!name}>Save Changes</Button>
           </DialogFooter>
         </form>
       </DialogContent>
