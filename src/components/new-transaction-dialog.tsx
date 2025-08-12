@@ -344,9 +344,9 @@ export function NewTransactionDialog({
                     <SelectValue placeholder="Select a wallet" />
                 </SelectTrigger>
                 <SelectContent>
-                    {allWallets.map((wallet) => (
-                    <SelectItem key={wallet.id} value={wallet.name}>
-                        {wallet.name} ({wallet.currency})
+                    {allWallets.map((w) => (
+                    <SelectItem key={w.id} value={w.name}>
+                        {w.name} ({w.currency})
                     </SelectItem>
                     ))}
                 </SelectContent>
@@ -457,7 +457,7 @@ export function NewTransactionDialog({
                     {attachments.length > 0 && (
                         <div className="space-y-2 pt-2">
                         {attachments.map((file, index) => (
-                            <div key={index} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
+                            <div key={`${file.name}-${index}`} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
                             <span className="truncate">{file.name}</span>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAttachment(index)}>
                                 <X className="h-4 w-4" />

@@ -398,9 +398,9 @@ export function EditTransactionDialog({
                     <SelectValue placeholder="Select a wallet" />
                 </SelectTrigger>
                 <SelectContent>
-                    {allWallets.map((wallet) => (
-                    <SelectItem key={wallet.id} value={wallet.name}>
-                        {wallet.name} ({wallet.currency})
+                    {allWallets.map((w) => (
+                    <SelectItem key={w.id} value={w.name}>
+                        {w.name} ({w.currency})
                     </SelectItem>
                     ))}
                 </SelectContent>
@@ -542,7 +542,7 @@ export function EditTransactionDialog({
                         </div>
                     ))}
                     {newAttachments.map((file, index) => (
-                         <div key={index} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
+                         <div key={`${file.name}-${index}`} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
                             <span className="truncate flex items-center gap-2">
                                 <Paperclip className="h-4 w-4"/>
                                 {file.name}
