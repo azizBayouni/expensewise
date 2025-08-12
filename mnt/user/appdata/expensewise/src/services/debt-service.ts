@@ -74,7 +74,7 @@ export async function addPaymentToDebt(userId: string, debtId: string, paymentAm
 
     const newPayment: Payment = {
         id: randomUUID(),
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: new Date().toISOString(),
         amount: paymentAmount,
     };
     

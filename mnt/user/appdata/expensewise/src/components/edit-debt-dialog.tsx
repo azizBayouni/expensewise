@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -152,7 +153,7 @@ export function EditDebtDialog({
         toast({ title: "Overpayment", description: "Payment cannot exceed remaining amount.", variant: "destructive" });
         return;
       }
-      const updatedDebt = await addPaymentToDebt(user.uid, debt, paymentValue);
+      const updatedDebt = await addPaymentToDebt(user.uid, debt.id, paymentValue);
       updateLocalState(updatedDebt);
       setNewPaymentAmount('');
       toast({ title: "Payment Added", description: "The partial payment has been recorded." });
