@@ -42,3 +42,4 @@ export async function deleteEvent(userId: string, eventId: string): Promise<void
         window.dispatchEvent(new Event('eventsUpdated'));
     }
 }
+
