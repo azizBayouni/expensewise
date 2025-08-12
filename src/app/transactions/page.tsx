@@ -220,7 +220,7 @@ export default function TransactionsPage() {
                   <SelectContent>
                     <SelectItem value="all">All Wallets</SelectItem>
                     {wallets.map((wallet) => (
-                        <SelectItem key={wallet.id} value={wallet.name}>{wallet.name}</SelectItem>
+                        <SelectItem key={wallet.name} value={wallet.name}>{wallet.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
