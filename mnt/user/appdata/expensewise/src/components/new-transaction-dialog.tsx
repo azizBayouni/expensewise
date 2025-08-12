@@ -361,7 +361,7 @@ export function NewTransactionDialog({
                             <SelectValue placeholder="Currency" />
                         </SelectTrigger>
                         <SelectContent>
-                            {currencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            {currencies.map((c, index) => <SelectItem key={`${c}-${index}`} value={c}>{c}</SelectItem>)}
                         </SelectContent>
                     </Select>
                 </div>
@@ -487,5 +487,3 @@ export function NewTransactionDialog({
     </Dialog>
   );
 }
-
-    

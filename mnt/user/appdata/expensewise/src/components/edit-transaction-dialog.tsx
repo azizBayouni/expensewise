@@ -428,8 +428,8 @@ export function EditTransactionDialog({
                     <SelectValue placeholder="Currency" />
                   </SelectTrigger>
                   <SelectContent>
-                    {currencies.map((c) => (
-                      <SelectItem key={c} value={c}>
+                    {currencies.map((c, index) => (
+                      <SelectItem key={`${c}-${index}`} value={c}>
                         {c}
                       </SelectItem>
                     ))}
