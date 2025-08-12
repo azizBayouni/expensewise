@@ -45,7 +45,7 @@ export function AddDebtDialog({
   const [type, setType] = useState<'payable' | 'receivable'>('payable');
   const [person, setPerson] = useState('');
   const [amount, setAmount] = useState<number | ''>('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('');
   const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
   const [note, setNote] = useState('');
   const { toast } = useToast();

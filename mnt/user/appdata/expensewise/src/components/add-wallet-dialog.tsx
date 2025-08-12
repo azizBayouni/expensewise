@@ -54,17 +54,17 @@ export function AddWalletDialog({
   
   useEffect(() => {
     async function fetchDefaultData() {
-        if (user) {
+        if (user && isOpen) {
             const defaultCurrency = await getDefaultCurrency(user.uid);
             setCurrency(defaultCurrency);
         }
     }
+    fetchDefaultData();
 
     if (isOpen) {
       // Reset form when dialog opens
       setName('');
       setIcon('🏦');
-      fetchDefaultData();
       setIconSearch('');
     }
   }, [isOpen, user]);
