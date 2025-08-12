@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { PlusCircle, Paperclip, Calendar as CalendarIcon } from 'lucide-react';
-import { NewTransactionDialog } from '@/app/new-transaction-dialog';
+import { NewTransactionDialog } from '@/components/new-transaction-dialog';
 import { EditTransactionDialog } from '@/components/edit-transaction-dialog';
 import { getDefaultCurrency } from '@/services/settings-service';
 import { MultiSelect } from '@/components/ui/multi-select';
