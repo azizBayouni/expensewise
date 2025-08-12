@@ -50,11 +50,13 @@ import { getAllEvents } from '@/services/event-service';
 interface NewTransactionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onTransactionAdded: () => void;
 }
 
 export function NewTransactionDialog({
   isOpen,
   onOpenChange,
+  onTransactionAdded,
 }: NewTransactionDialogProps) {
   const { user } = useAuth();
   const [type, setType] = useState<'income' | 'expense'>('expense');
@@ -201,8 +203,7 @@ export function NewTransactionDialog({
         return;
     }
 
-    const newTransaction: Omit<Transaction, 'id'> = {
-        userId: user.uid,
+    const newTransaction: Omit<Transaction, 'id' | 'userId'> = {
         amount: Number(finalAmount),
         type,
         description,
@@ -221,8 +222,8 @@ export function NewTransactionDialog({
       title: 'Transaction Saved',
       description: 'Your new transaction has been successfully recorded.',
     });
-
-    window.dispatchEvent(new Event('transactionsUpdated'));
+    
+    onTransactionAdded();
     onOpenChange(false);
   };
 
@@ -360,7 +361,7 @@ export function NewTransactionDialog({
                             <SelectValue placeholder="Currency" />
                         </SelectTrigger>
                         <SelectContent>
-                            {currencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            {currencies.map((c, index) => <SelectItem key={`${c}-${index}`} value={c}>{c}</SelectItem>)}
                         </SelectContent>
                     </Select>
                 </div>

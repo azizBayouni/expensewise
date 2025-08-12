@@ -61,12 +61,14 @@ interface EditTransactionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   transaction: Transaction | null;
+  onTransactionUpdated: () => void;
 }
 
 export function EditTransactionDialog({
   isOpen,
   onOpenChange,
   transaction,
+  onTransactionUpdated
 }: EditTransactionDialogProps) {
   const { user } = useAuth();
   const [type, setType] = useState<'income' | 'expense'>('expense');
@@ -273,7 +275,7 @@ export function EditTransactionDialog({
         description: 'Your transaction has been successfully updated.',
       });
       
-      window.dispatchEvent(new Event('transactionsUpdated'));
+      onTransactionUpdated();
       onOpenChange(false);
     }
   };
@@ -286,7 +288,7 @@ export function EditTransactionDialog({
             description: 'The transaction has been successfully deleted.',
             variant: 'destructive'
         });
-        window.dispatchEvent(new Event('transactionsUpdated'));
+        onTransactionUpdated();
         onOpenChange(false);
     }
   }
@@ -426,8 +428,8 @@ export function EditTransactionDialog({
                     <SelectValue placeholder="Currency" />
                   </SelectTrigger>
                   <SelectContent>
-                    {currencies.map((c) => (
-                      <SelectItem key={c} value={c}>
+                    {currencies.map((c, index) => (
+                      <SelectItem key={`${c}-${index}`} value={c}>
                         {c}
                       </SelectItem>
                     ))}
