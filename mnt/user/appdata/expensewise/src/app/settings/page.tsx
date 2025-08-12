@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect } from "react";
@@ -21,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { currencies } from "@/lib/data"
-import { FileUp, Download, UploadCloud, Moon, Sun, Trash2, HardDriveDownload, HardDriveUpload, KeyRound } from "lucide-react"
+import { FileUp, Download, UploadCloud, Moon, Sun, Trash2, HardDriveDownload, HardDriveUpload, KeyRound, CheckCircle, XCircle } from "lucide-react"
 import { getDefaultCurrency, setDefaultCurrency } from "@/services/settings-service";
 import { useToast } from "@/hooks/use-toast";
 import { addTransactions, deleteAllTransactions as deleteAllTransactionsService, convertAllTransactions } from "@/services/transaction-service";
@@ -42,7 +43,6 @@ import { DeleteAllCategoriesDialog } from "@/components/delete-all-categories-di
 import { getExchangeRateApiKey, setExchangeRateApiKey } from "@/services/api-key-service";
 import { useAuth } from "@/components/auth-provider";
 import { getAllEvents } from "@/services/event-service";
-import { getAllTransactions } from "@/services/transaction-service";
 import { verifyApiKey } from "@/ai/flows/verify-api-key-flow";
 
 
@@ -60,6 +60,7 @@ export default function SettingsPage() {
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [exchangeRateKey, setExchangeRateKey] = useState('');
+  const [keyVerificationStatus, setKeyVerificationStatus] = useState<'unverified' | 'verified' | 'invalid'>('unverified');
   const [isVerifyingKey, setIsVerifyingKey] = useState(false);
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
@@ -73,7 +74,13 @@ export default function SettingsPage() {
             setCurrentDefaultCurrency(currency);
             setSelectedCurrency(currency);
         });
-        getExchangeRateApiKey(user.uid).then(key => setExchangeRateKey(key || ''));
+        getExchangeRateApiKey(user.uid).then(key => {
+            setExchangeRateKey(key || '');
+            if (key) {
+                // You might want to auto-verify on load, or just show unverified
+                setKeyVerificationStatus('unverified');
+            }
+        });
     }
   }, [user]);
 
@@ -473,7 +480,7 @@ export default function SettingsPage() {
         getDefaultCurrency(user.uid),
         getTheme(),
         getDefaultWallet(user.uid),
-        getTravelMode(user.uid)
+        getTravelMode()
       ]);
 
       const settings = {
@@ -559,7 +566,7 @@ export default function SettingsPage() {
             if (data.settings.theme) setAppTheme(data.settings.theme);
             if (data.settings.defaultWallet) await setDefaultWallet(user.uid, data.settings.defaultWallet);
             if (data.settings.travelMode && data.settings.travelMode.isActive) {
-                setTravelMode(user.uid, data.settings.travelMode);
+                setTravelMode(data.settings.travelMode);
             }
 
             // --- RESTORE USER ---
@@ -591,7 +598,17 @@ export default function SettingsPage() {
     reader.readAsText(restoreFile);
   };
   
-  const handleApiKeySave = async () => {
+  const handleSaveApiKey = async () => {
+    if (!user) return;
+    await setExchangeRateApiKey(user.uid, exchangeRateKey);
+    setKeyVerificationStatus('unverified');
+    toast({
+        title: 'API Key Saved',
+        description: 'Your key has been saved. You can verify it now.',
+    });
+  }
+  
+  const handleVerifyApiKey = async () => {
     if (!user) return;
     setIsVerifyingKey(true);
     
@@ -599,12 +616,13 @@ export default function SettingsPage() {
         const result = await verifyApiKey({ apiKey: exchangeRateKey });
 
         if (result.isValid) {
-            await setExchangeRateApiKey(user.uid, exchangeRateKey);
+            setKeyVerificationStatus('verified');
             toast({
-                title: 'API Key Verified & Saved',
-                description: 'Your ExchangeRate-API key is valid and has been saved.',
+                title: 'API Key Verified',
+                description: 'Your ExchangeRate-API key is valid.',
             });
         } else {
+            setKeyVerificationStatus('invalid');
             toast({
                 title: 'Invalid API Key',
                 description: result.error || 'Please check the key and try again.',
@@ -612,6 +630,7 @@ export default function SettingsPage() {
             });
         }
     } catch (e: any) {
+        setKeyVerificationStatus('invalid');
         console.error("API Key verification failed:", e);
         toast({
             title: 'Verification Failed',
@@ -713,15 +732,23 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
                 <div className="space-y-2">
-                    <Label htmlFor="exchangerate-api-key" className="flex items-center gap-2">
-                        <KeyRound className="h-4 w-4" />
-                        ExchangeRate-API Key
+                    <Label htmlFor="exchangerate-api-key" className="flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                            <KeyRound className="h-4 w-4" />
+                            ExchangeRate-API Key
+                        </span>
+                        {keyVerificationStatus === 'verified' && <span className="text-xs text-green-500 flex items-center gap-1"><CheckCircle className="h-3 w-3"/> Verified</span>}
+                        {keyVerificationStatus === 'invalid' && <span className="text-xs text-red-500 flex items-center gap-1"><XCircle className="h-3 w-3"/> Invalid</span>}
+                        {keyVerificationStatus === 'unverified' && exchangeRateKey && <span className="text-xs text-muted-foreground">Unverified</span>}
                     </Label>
                     <Input 
                         id="exchangerate-api-key" 
                         type="password"
                         value={exchangeRateKey} 
-                        onChange={(e) => setExchangeRateKey(e.target.value)} 
+                        onChange={(e) => {
+                            setExchangeRateKey(e.target.value);
+                            setKeyVerificationStatus('unverified');
+                        }}
                         placeholder="Enter your API key"
                     />
                     <p className="text-xs text-muted-foreground">
@@ -729,9 +756,10 @@ export default function SettingsPage() {
                     </p>
                 </div>
             </CardContent>
-             <CardFooter className="border-t px-6 py-4">
-              <Button onClick={handleApiKeySave} disabled={isVerifyingKey}>
-                {isVerifyingKey ? 'Verifying...' : 'Save & Verify API Key'}
+             <CardFooter className="border-t px-6 py-4 flex justify-end gap-2">
+              <Button onClick={handleSaveApiKey} variant="secondary">Save API Key</Button>
+              <Button onClick={handleVerifyApiKey} disabled={isVerifyingKey || !exchangeRateKey}>
+                {isVerifyingKey ? 'Verifying...' : 'Verify API Key'}
               </Button>
             </CardFooter>
           </Card>
