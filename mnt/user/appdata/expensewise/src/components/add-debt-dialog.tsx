@@ -50,13 +50,14 @@ export function AddDebtDialog({
   const [note, setNote] = useState('');
   const { toast } = useToast();
 
-  const fetchDefaultCurrency = useCallback(async () => {
-    if (user) {
-        setCurrency(await getDefaultCurrency(user.uid));
-    }
-  }, [user]);
-
   useEffect(() => {
+    async function fetchDefaultCurrency() {
+        if (user) {
+            const defaultCurrency = await getDefaultCurrency(user.uid);
+            setCurrency(defaultCurrency);
+        }
+    }
+    
     if (isOpen) {
       // Reset form when dialog opens
       setType('payable');
@@ -66,7 +67,7 @@ export function AddDebtDialog({
       setDueDate(new Date());
       setNote('');
     }
-  }, [isOpen, fetchDefaultCurrency]);
+  }, [isOpen, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
