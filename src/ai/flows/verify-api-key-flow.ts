@@ -40,11 +40,6 @@ async function checkApiKey(apiKey: string): Promise<ApiKeyVerificationOutput> {
     }
 }
 
-export async function verifyApiKey(input: ApiKeyVerificationInput): Promise<ApiKeyVerificationOutput> {
-    return verifyApiKeyFlow(input);
-}
-
-
 const verifyApiKeyFlow = ai.defineFlow(
   {
     name: 'verifyApiKeyFlow',
@@ -55,3 +50,9 @@ const verifyApiKeyFlow = ai.defineFlow(
     return await checkApiKey(apiKey);
   }
 );
+
+export async function verifyApiKey(input: ApiKeyVerificationInput): Promise<ApiKeyVerificationOutput> {
+    return await verifyApiKeyFlow(input);
+}
+
+    
