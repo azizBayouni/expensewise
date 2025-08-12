@@ -29,6 +29,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { EditCategoryDialog } from '@/components/edit-category-dialog';
 import { AddCategoryDialog } from '@/components/add-category-dialog';
