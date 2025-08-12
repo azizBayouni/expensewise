@@ -24,6 +24,7 @@ import { addEvent } from '@/services/event-service';
 import { useState, useMemo, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast"
 import { ScrollArea } from './ui/scroll-area';
+import { useAuth } from './auth-provider';
 
 interface AddEventDialogProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export function AddEventDialog({
   isOpen,
   onOpenChange,
 }: AddEventDialogProps) {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('🎉');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -51,6 +53,7 @@ export function AddEventDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     if (!name) {
         toast({
             title: "Name is required",
@@ -60,7 +63,7 @@ export function AddEventDialog({
         return;
     }
 
-    addEvent({
+    addEvent(user.uid, {
       name,
       icon,
     });

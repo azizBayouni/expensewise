@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import db from './db';
@@ -14,7 +15,7 @@ export async function addEvent(userId: string, newEventData: Omit<Event, 'id' | 
         status: 'active',
     };
     const stmt = db.prepare('INSERT INTO events (id, userId, name, icon, status) VALUES (?, ?, ?, ?, ?)');
-    stmt.run(newEvent.id, userId, newEvent.name, newEvent.icon, newEvent.status);
+    stmt.run(newEvent.id, newEvent.userId, newEvent.name, newEvent.icon, newEvent.status);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('eventsUpdated'));
     }

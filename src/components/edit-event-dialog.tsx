@@ -25,6 +25,7 @@ import { updateEvent } from '@/services/event-service';
 import { useEffect, useState, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast"
 import { ScrollArea } from './ui/scroll-area';
+import { useAuth } from './auth-provider';
 
 interface EditEventDialogProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export function EditEventDialog({
   onOpenChange,
   event,
 }: EditEventDialogProps) {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('🎉');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
@@ -55,14 +57,14 @@ export function EditEventDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (event) {
+    if (event && user) {
       const updatedEvent: Event = {
         ...event,
         name,
         icon,
         status,
       };
-      updateEvent(updatedEvent);
+      updateEvent(user.uid, updatedEvent);
       toast({
           title: "Event Updated",
           description: `The event "${name}" has been saved.`,
