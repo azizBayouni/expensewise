@@ -1,6 +1,8 @@
 services:
   app:
     build: .
+    dns:
+      - 8.8.8.8
     ports:
       - '3001:3000'
     environment:
