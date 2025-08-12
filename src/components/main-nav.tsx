@@ -19,7 +19,7 @@ import {
   Users,
   Settings,
   LineChart,
-  Landmark,
+  DollarSign,
   LayoutGrid,
   CalendarDays,
 } from 'lucide-react';
@@ -46,7 +46,7 @@ export function MainNav() {
     <>
       <SidebarHeader>
         <div className="flex items-center gap-2">
-          <Landmark className="size-8 text-primary" />
+          <DollarSign className="size-8 text-primary" />
           <div className="flex flex-col">
             <h2 className="text-lg font-semibold tracking-tight text-sidebar-foreground">
               ExpenseWise
