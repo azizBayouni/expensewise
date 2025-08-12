@@ -4,24 +4,12 @@
 /**
  * @fileOverview An AI flow to verify the ExchangeRate-API key.
  * 
- * - verifyApiKey: A function that checks if the provided API key is valid.
- * - ApiKeyVerificationInput: The input type for the verifyApiKey function.
- * - ApiKeyVerificationOutput: The return type for the verifyApiKey function.
+ * This file contains the server-side logic for verifying the API key.
+ * It should only export the `verifyApiKey` async function.
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
-
-export const ApiKeyVerificationInputSchema = z.object({
-  apiKey: z.string().describe('The ExchangeRate-API key to verify.'),
-});
-export type ApiKeyVerificationInput = z.infer<typeof ApiKeyVerificationInputSchema>;
-
-export const ApiKeyVerificationOutputSchema = z.object({
-  isValid: z.boolean().describe('Whether the API key is valid.'),
-  error: z.string().optional().describe('The error message if the key is invalid.'),
-});
-export type ApiKeyVerificationOutput = z.infer<typeof ApiKeyVerificationOutputSchema>;
+import { ApiKeyVerificationInputSchema, ApiKeyVerificationOutputSchema, type ApiKeyVerificationOutput, type ApiKeyVerificationInput } from './verify-api-key-types';
 
 
 async function checkApiKey(apiKey: string): Promise<ApiKeyVerificationOutput> {
@@ -40,6 +28,7 @@ async function checkApiKey(apiKey: string): Promise<ApiKeyVerificationOutput> {
     }
 }
 
+
 const verifyApiKeyFlow = ai.defineFlow(
   {
     name: 'verifyApiKeyFlow',
@@ -54,5 +43,3 @@ const verifyApiKeyFlow = ai.defineFlow(
 export async function verifyApiKey(input: ApiKeyVerificationInput): Promise<ApiKeyVerificationOutput> {
     return await verifyApiKeyFlow(input);
 }
-
-    
