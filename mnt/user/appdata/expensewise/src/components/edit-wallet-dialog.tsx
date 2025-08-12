@@ -80,7 +80,7 @@ export function EditWalletDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (wallet && user) {
+    if (wallet && user && name) {
       const updatedWallet: Wallet = {
         ...wallet,
         name,
@@ -205,7 +205,7 @@ export function EditWalletDialog({
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit">Save Changes</Button>
+            <Button type="submit" disabled={!name}>Save Changes</Button>
           </DialogFooter>
         </form>
       </DialogContent>
