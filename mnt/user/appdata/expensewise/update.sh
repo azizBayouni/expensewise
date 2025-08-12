@@ -2,7 +2,8 @@
 
 # This script automates the process of updating the ExpenseWise application on Unraid.
 # It navigates to the application directory, stops the running Docker environment,
-# resets any local changes, pulls the latest code from Git, and then builds and starts a fresh one.
+# forcefully resets any local changes, pulls the latest code from Git, 
+# and then builds and starts a fresh environment.
 
 # Set the path to your application's docker-compose file
 APP_PATH="/mnt/user/appdata/expensewise"
@@ -19,6 +20,11 @@ echo "----------------------------------------"
 echo "Forcefully resetting any local changes..."
 echo "----------------------------------------"
 git reset --hard HEAD
+
+echo "----------------------------------------"
+echo "Forcefully removing untracked files..."
+echo "----------------------------------------"
+git clean -df
 
 echo "----------------------------------------"
 echo "Pulling latest changes from Git..."
