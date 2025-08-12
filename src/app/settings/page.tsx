@@ -42,7 +42,7 @@ import { DeleteAllCategoriesDialog } from "@/components/delete-all-categories-di
 import { getExchangeRateApiKey, setExchangeRateApiKey } from "@/services/api-key-service";
 import { useAuth } from "@/components/auth-provider";
 import { getAllEvents } from "@/services/event-service";
-import { verifyApiKey } from "../../ai/flows/verify-api-key-flow";
+import { verifyApiKey } from "@/ai/flows/verify-api-key-flow";
 
 
 export default function SettingsPage() {
@@ -76,7 +76,6 @@ export default function SettingsPage() {
         getExchangeRateApiKey(user.uid).then(key => {
             setExchangeRateKey(key || '');
             if (key) {
-                // You might want to auto-verify on load, or just show unverified
                 setKeyVerificationStatus('unverified');
             }
         });
@@ -91,8 +90,6 @@ export default function SettingsPage() {
         title: "Profile Saved",
         description: "Your name has been updated.",
         });
-        // This is a simple way to force the header to update.
-        // In a more complex app, global state management would be better.
         window.dispatchEvent(new Event('profileUpdated'));
     } catch(e) {
         toast({
@@ -158,8 +155,6 @@ export default function SettingsPage() {
       title: "Settings Saved",
       description: `Default currency set to ${selectedCurrency}.`,
     });
-    // A full page reload would be a simple way to force all components to re-render
-    // with the new currency. A more sophisticated app might use a global state manager.
     window.location.reload();
   };
 
@@ -197,7 +192,6 @@ export default function SettingsPage() {
         getAllEvents(user.uid),
     ]);
 
-    // 1. Prepare Transaction Data
     const transactionData = allTransactions.map((t, index) => {
         const eventName = t.eventId ? allEvents.find(e => e.id === t.eventId)?.name || '' : '';
         return {
@@ -213,23 +207,19 @@ export default function SettingsPage() {
         };
     });
 
-    // 2. Prepare Category Data
     const categoryData = allCategories.map(c => ({
         'Category Name': c.name,
         'Parent Category': allCategories.find(p => p.id === c.parentId)?.name || '',
         'Type': c.type,
     }));
 
-    // 3. Create Worksheets
     const transactionsWs = XLSX.utils.json_to_sheet(transactionData);
     const categoriesWs = XLSX.utils.json_to_sheet(categoryData);
 
-    // 4. Create Workbook and add worksheets
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, transactionsWs, "Transactions");
     XLSX.utils.book_append_sheet(wb, categoriesWs, "Categories");
 
-    // 5. Trigger download
     XLSX.writeFile(wb, "expensewise-export.xlsx");
 
     toast({
@@ -286,7 +276,7 @@ export default function SettingsPage() {
       const text = e.target?.result as string;
       if (!text) return;
 
-      const rows = text.split('\n').slice(1); // Skip header row
+      const rows = text.split('\n').slice(1);
       const newTransactions: Omit<Transaction, 'id' | 'userId'>[] = [];
 
       try {
@@ -294,7 +284,7 @@ export default function SettingsPage() {
         const currencyCodes = new Set(currencies.map(c => c.toLowerCase()));
 
         rows.forEach((row, index) => {
-          if (!row.trim()) return; // Skip empty rows
+          if (!row.trim()) return;
           const columns = row.split(',').map(c => c.trim());
           const rowNum = index + 2;
 
@@ -449,7 +439,7 @@ export default function SettingsPage() {
         setImportCategoriesFile(null);
         const fileInput = document.getElementById('import-categories-file') as HTMLInputElement;
         if(fileInput) fileInput.value = '';
-        window.dispatchEvent(new Event('storage')); // Force refresh of other components
+        window.dispatchEvent(new Event('storage'));
       }
     };
     reader.readAsText(importCategoriesFile);
@@ -542,16 +532,13 @@ export default function SettingsPage() {
             
             const data = JSON.parse(text);
 
-            // --- VALIDATION (simple checks) ---
             if (!data.transactions || !data.categories || !data.wallets || !data.settings) {
                 throw new Error("Invalid or corrupted backup file.");
             }
 
-            // --- RESTORE DATA ---
             toast({ title: "Restore in progress...", description: "Please wait."});
             await deleteAllTransactionsService(user.uid);
             await deleteAllCategories(user.uid);
-            // We can add more deletions here for wallets, debts, etc. if needed.
             
             if (data.transactions) await addTransactions(user.uid, data.transactions.map((t: any) => ({...t, userId: user.uid})));
             if (data.categories) {
@@ -560,7 +547,6 @@ export default function SettingsPage() {
                 }
             }
             
-            // --- RESTORE SETTINGS ---
             if (data.settings.defaultCurrency) await setDefaultCurrency(user.uid, data.settings.defaultCurrency);
             if (data.settings.theme) setAppTheme(data.settings.theme);
             if (data.settings.defaultWallet) await setDefaultWallet(user.uid, data.settings.defaultWallet);
@@ -568,7 +554,6 @@ export default function SettingsPage() {
                 setTravelMode(data.settings.travelMode);
             }
 
-            // --- RESTORE USER ---
             if (data.user?.name) {
                 await updateUserProfile({ displayName: data.user.name });
             }
@@ -578,7 +563,6 @@ export default function SettingsPage() {
                 description: "Your data has been restored. The page will now reload."
             });
             
-            // Reload the page to apply all changes
             setTimeout(() => window.location.reload(), 2000);
 
         } catch (error: any) {
@@ -608,7 +592,7 @@ export default function SettingsPage() {
   }
   
   const handleVerifyApiKey = async () => {
-    if (!user) return;
+    if (!user || !exchangeRateKey) return;
     setIsVerifyingKey(true);
     
     try {
