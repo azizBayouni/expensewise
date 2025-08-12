@@ -25,7 +25,7 @@ docker-compose down --volumes --rmi all
 echo "----------------------------------------"
 echo "Building and starting new Docker containers..."
 echo "----------------------------------------"
-docker-compose up --build -d
+docker-compose up --build --no-cache -d
 
 echo "----------------------------------------"
 echo "Update complete!"
