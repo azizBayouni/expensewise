@@ -480,7 +480,7 @@ export default function SettingsPage() {
         getDefaultCurrency(user.uid),
         getTheme(),
         getDefaultWallet(user.uid),
-        getTravelMode(user.uid)
+        getTravelMode()
       ]);
 
       const settings = {
@@ -566,7 +566,7 @@ export default function SettingsPage() {
             if (data.settings.theme) setAppTheme(data.settings.theme);
             if (data.settings.defaultWallet) await setDefaultWallet(user.uid, data.settings.defaultWallet);
             if (data.settings.travelMode && data.settings.travelMode.isActive) {
-                setTravelMode(user.uid, data.settings.travelMode);
+                setTravelMode(data.settings.travelMode);
             }
 
             // --- RESTORE USER ---
