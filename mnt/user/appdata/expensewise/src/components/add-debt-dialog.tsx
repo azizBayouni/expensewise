@@ -52,7 +52,7 @@ export function AddDebtDialog({
 
   useEffect(() => {
     async function fetchDefaultCurrency() {
-        if (user) {
+        if (user && isOpen) {
             const defaultCurrency = await getDefaultCurrency(user.uid);
             setCurrency(defaultCurrency);
         }
@@ -63,9 +63,9 @@ export function AddDebtDialog({
       setType('payable');
       setPerson('');
       setAmount('');
-      fetchDefaultCurrency();
       setDueDate(new Date());
       setNote('');
+      fetchDefaultCurrency();
     }
   }, [isOpen, user]);
 
