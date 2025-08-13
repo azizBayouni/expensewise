@@ -48,6 +48,7 @@ export default function WalletsPage() {
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
   const [defaultWalletId, setDefaultWalletId] = useState<string | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
@@ -62,12 +63,8 @@ export default function WalletsPage() {
             getDefaultWallet(user.uid)
         ]);
         
-        const walletsWithBalance = wals.map(w => ({
-            ...w,
-            balance: getWalletBalance(w, trans)
-        }));
-        
-        setWallets(walletsWithBalance);
+        setWallets(wals);
+        setTransactions(trans);
         setDefaultWalletId(defWallet);
     } catch (error) {
         console.error("Error fetching wallets page data:", error);
@@ -212,11 +209,11 @@ export default function WalletsPage() {
                             
                         </CardHeader>
                         <CardContent>
-                            <div className={`text-2xl font-bold ${wallet.balance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
-                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(getWalletBalance(wallet, []))}
+                             <div className={`text-2xl font-bold ${getWalletBalance(wallet, transactions) >= 0 ? 'text-foreground' : 'text-destructive'}`}>
+                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(getWalletBalance(wallet, transactions))}
                             </div>
                              <p className="text-xs text-muted-foreground">
-                                Current Balance: {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(wallet.balance)}
+                                Initial Balance: {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(wallet.balance)}
                             </p>
                         </CardContent>
                     </DropdownMenu>

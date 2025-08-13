@@ -12,7 +12,7 @@ export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id'
         id: randomUUID(), 
         userId, 
         balance: 0, 
-        linkedCategoryIds: [] // Correctly initialize as empty array
+        linkedCategoryIds: []
     };
     const db = await getDb();
     const stmt = db.prepare('INSERT INTO wallets (id, userId, name, currency, balance, icon, linkedCategoryIds) VALUES (?, ?, ?, ?, ?, ?, ?)');
@@ -30,16 +30,15 @@ export async function getAllWallets(userId: string): Promise<Wallet[]> {
 }
 
 export async function updateWallet(userId: string, updatedWallet: Wallet): Promise<void> {
-  const { id, balance, ...walletData } = updatedWallet;
+  const { id, ...walletData } = updatedWallet;
   const db = await getDb();
-  const stmt = db.prepare('UPDATE wallets SET name = ?, currency = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?');
-  stmt.run(walletData.name, walletData.currency, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
+  const stmt = db.prepare('UPDATE wallets SET name = ?, currency = ?, balance = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?');
+  stmt.run(walletData.name, walletData.currency, walletData.balance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
 }
 
 export async function deleteWallet(userId: string, walletId: string): Promise<void> {
     const db = await getDb();
     
-    // Check if there are transactions associated with this wallet
     const walletStmt = db.prepare('SELECT name from wallets WHERE id = ? AND userId = ?');
     const wallet = walletStmt.get(walletId, userId) as Wallet | undefined;
 
@@ -51,7 +50,7 @@ export async function deleteWallet(userId: string, walletId: string): Promise<vo
     const hasTransactions = checkStmt.get(wallet.name, userId);
 
     if (hasTransactions) {
-        throw new Error("Cannot delete a wallet that has associated transactions.");
+        throw new Error("Cannot delete a wallet that has associated transactions. Please re-assign or delete them first.");
     }
 
     const stmt = db.prepare('DELETE FROM wallets WHERE id = ? AND userId = ?');
