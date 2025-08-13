@@ -11,6 +11,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
   Dialog,
@@ -27,7 +28,6 @@ import { Label } from '@/components/ui/label';
 import { deleteAllTransactions } from '@/services/transaction-service';
 import { useToast } from '@/hooks/use-toast';
 import { TriangleAlert } from 'lucide-react';
-import { useAuth } from './auth-provider';
 
 interface DeleteAllTransactionsDialogProps {
   isOpen: boolean;
@@ -38,7 +38,6 @@ export function DeleteAllTransactionsDialog({
   isOpen,
   onOpenChange,
 }: DeleteAllTransactionsDialogProps) {
-  const { user } = useAuth();
   const [isSecondConfirmOpen, setIsSecondConfirmOpen] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
   const { toast } = useToast();
@@ -48,10 +47,9 @@ export function DeleteAllTransactionsDialog({
     setIsSecondConfirmOpen(true);
   };
 
-  const handleFinalDelete = async () => {
-    if (!user) return;
+  const handleFinalDelete = () => {
     if (confirmationText === 'DELETE') {
-      await deleteAllTransactions(user.uid);
+      deleteAllTransactions();
       toast({
         title: 'Success',
         description: 'All transactions have been permanently deleted.',

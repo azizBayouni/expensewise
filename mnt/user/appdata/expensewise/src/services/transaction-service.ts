@@ -22,7 +22,7 @@ async function uploadAttachment(userId: string, transactionId: string, file: Fil
     return { name: file.name, url };
 }
 
-export async function addTransaction(userId: string, newTransaction: Omit<AppTransaction, 'id'>, newAttachments: File[]): Promise<void> {
+export async function addTransaction(userId: string, newTransaction: Omit<AppTransaction, 'id' | 'userId'>, newAttachments: File[]): Promise<void> {
     const transactionId = randomUUID();
     let attachmentUrls: {name: string, url: string}[] = [];
 
@@ -33,12 +33,12 @@ export async function addTransaction(userId: string, newTransaction: Omit<AppTra
     }
     
     const { attachments, ...transactionData } = newTransaction;
-    
     const db = await getDb();
-    await db.run(`
+    const stmt = db.prepare(`
         INSERT INTO transactions (id, userId, date, amount, type, category, wallet, description, currency, attachments, eventId, excludeFromReport)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, transactionId, userId, transactionData.date, transactionData.amount, transactionData.type, transactionData.category, transactionData.wallet, transactionData.description, transactionData.currency, JSON.stringify(attachmentUrls), transactionData.eventId, transactionData.excludeFromReport ? 1 : 0);
+    `);
+    stmt.run(transactionId, userId, transactionData.date, transactionData.amount, transactionData.type, transactionData.category, transactionData.wallet, transactionData.description, transactionData.currency, JSON.stringify(attachmentUrls), transactionData.eventId, transactionData.excludeFromReport ? 1 : 0);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('transactionsUpdated'));
     }
@@ -46,19 +46,18 @@ export async function addTransaction(userId: string, newTransaction: Omit<AppTra
 
 export async function addTransactions(userId: string, newTransactions: Omit<AppTransaction, 'id' | 'userId' | 'attachments'>[]): Promise<void> {
     const db = await getDb();
-    await db.run('BEGIN TRANSACTION');
-    try {
-        for (const t of newTransactions) {
-            await db.run(`
-                INSERT INTO transactions (id, userId, date, amount, type, category, wallet, description, currency, eventId, excludeFromReport)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, randomUUID(), userId, t.date, t.amount, t.type, t.category, t.wallet, t.description, t.currency, t.eventId, t.excludeFromReport ? 1 : 0);
+    const insertStmt = db.prepare(`
+        INSERT INTO transactions (id, userId, date, amount, type, category, wallet, description, currency, eventId, excludeFromReport)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const insertMany = db.transaction((transactions) => {
+        for (const t of transactions) {
+            insertStmt.run(randomUUID(), userId, t.date, t.amount, t.type, t.category, t.wallet, t.description, t.currency, t.eventId, t.excludeFromReport ? 1 : 0);
         }
-        await db.run('COMMIT');
-    } catch(e) {
-        await db.run('ROLLBACK');
-        throw e;
-    }
+    });
+
+    insertMany(newTransactions);
     
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('transactionsUpdated'));
@@ -67,7 +66,8 @@ export async function addTransactions(userId: string, newTransactions: Omit<AppT
 
 export async function getAllTransactions(userId: string): Promise<AppTransaction[]> {
     const db = await getDb();
-    const results = await db.all('SELECT * FROM transactions WHERE userId = ? ORDER BY date DESC', userId);
+    const stmt = db.prepare('SELECT * FROM transactions WHERE userId = ? ORDER BY date DESC');
+    const results = stmt.all(userId) as any[];
     return results.map(row => ({
         ...row,
         attachments: JSON.parse(row.attachments || '[]'),
@@ -77,7 +77,8 @@ export async function getAllTransactions(userId: string): Promise<AppTransaction
 
 export async function getTransactionsForWallet(userId: string, walletName: string): Promise<AppTransaction[]> {
     const db = await getDb();
-    const results = await db.all('SELECT * FROM transactions WHERE userId = ? AND wallet = ? ORDER BY date DESC', userId, walletName);
+    const stmt = db.prepare('SELECT * FROM transactions WHERE userId = ? AND wallet = ? ORDER BY date DESC');
+    const results = stmt.all(userId, walletName) as any[];
      return results.map(row => ({
         ...row,
         attachments: JSON.parse(row.attachments || '[]'),
@@ -98,11 +99,12 @@ export async function updateTransaction(userId: string, updatedTransaction: AppT
     }
     
     const db = await getDb();
-    await db.run(`
+    const stmt = db.prepare(`
         UPDATE transactions 
         SET date = ?, amount = ?, type = ?, category = ?, wallet = ?, description = ?, currency = ?, attachments = ?, eventId = ?, excludeFromReport = ?
         WHERE id = ? AND userId = ?
-    `, transactionData.date, transactionData.amount, transactionData.type, transactionData.category, transactionData.wallet, transactionData.description, transactionData.currency, JSON.stringify(finalAttachments), transactionData.eventId, transactionData.excludeFromReport ? 1 : 0, id, userId);
+    `);
+    stmt.run(transactionData.date, transactionData.amount, transactionData.type, transactionData.category, transactionData.wallet, transactionData.description, transactionData.currency, JSON.stringify(finalAttachments), transactionData.eventId, transactionData.excludeFromReport ? 1 : 0, id, userId);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('transactionsUpdated'));
     }
@@ -110,7 +112,8 @@ export async function updateTransaction(userId: string, updatedTransaction: AppT
 
 export async function deleteTransaction(userId: string, transactionId: string): Promise<void> {
     const db = await getDb();
-    await db.run('DELETE FROM transactions WHERE id = ? AND userId = ?', transactionId, userId);
+    const stmt = db.prepare('DELETE FROM transactions WHERE id = ? AND userId = ?');
+    stmt.run(transactionId, userId);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('transactionsUpdated'));
     }
@@ -118,7 +121,8 @@ export async function deleteTransaction(userId: string, transactionId: string): 
 
 export async function deleteAllTransactions(userId: string): Promise<void> {
     const db = await getDb();
-    await db.run('DELETE FROM transactions WHERE userId = ?', userId);
+    const stmt = db.prepare('DELETE FROM transactions WHERE userId = ?');
+    stmt.run(userId);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('transactionsUpdated'));
     }
@@ -167,22 +171,25 @@ export async function convertAmount(userId: string, amount: number, fromCurrency
 }
 
 export async function convertAllTransactions(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
-    const allTransactions = await getAllTransactions(userId);
     const db = await getDb();
+    const allTransactions = await getAllTransactions(userId);
     
-    await db.run('BEGIN TRANSACTION');
-    try {
-        for (const transaction of allTransactions) {
-            if (transaction.currency === fromCurrency) {
-                const convertedAmount = await convertAmount(userId, transaction.amount, fromCurrency, toCurrency);
-                await db.run('UPDATE transactions SET amount = ?, currency = ? WHERE id = ?', convertedAmount, toCurrency, transaction.id);
-            }
-        }
-        await db.run('COMMIT');
-    } catch (e) {
-        await db.run('ROLLBACK');
-        throw e;
-    }
+    const transactionsToConvert = allTransactions.filter(t => t.currency === fromCurrency);
+
+    const conversionPromises = transactionsToConvert.map(async (transaction) => {
+        const convertedAmount = await convertAmount(userId, transaction.amount, fromCurrency, toCurrency);
+        return { ...transaction, amount: convertedAmount, currency: toCurrency };
+    });
+
+    const convertedTransactions = await Promise.all(conversionPromises);
+
+    const updateStmt = db.prepare('UPDATE transactions SET amount = ?, currency = ? WHERE id = ?');
+
+    const updateMany = db.transaction((transactions) => {
+        for (const trans of transactions) updateStmt.run(trans.amount, trans.currency, trans.id);
+    });
+    
+    updateMany(convertedTransactions);
 
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('transactionsUpdated'));

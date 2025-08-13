@@ -27,7 +27,6 @@ import { Label } from '@/components/ui/label';
 import { deleteAllCategories } from '@/services/category-service';
 import { useToast } from '@/hooks/use-toast';
 import { TriangleAlert } from 'lucide-react';
-import { useAuth } from './auth-provider';
 
 interface DeleteAllCategoriesDialogProps {
   isOpen: boolean;
@@ -38,7 +37,6 @@ export function DeleteAllCategoriesDialog({
   isOpen,
   onOpenChange,
 }: DeleteAllCategoriesDialogProps) {
-  const { user } = useAuth();
   const [isSecondConfirmOpen, setIsSecondConfirmOpen] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
   const { toast } = useToast();
@@ -48,11 +46,10 @@ export function DeleteAllCategoriesDialog({
     setIsSecondConfirmOpen(true);
   };
 
-  const handleFinalDelete = async () => {
-    if (!user) return;
+  const handleFinalDelete = () => {
     if (confirmationText === 'DELETE') {
       try {
-        await deleteAllCategories(user.uid);
+        deleteAllCategories();
         toast({
           title: 'Success',
           description: 'All categories have been permanently deleted.',

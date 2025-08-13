@@ -11,11 +11,21 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-// Initialize the database
-const db = new Database(DB_PATH);
+let db: Database.Database;
+
+export async function getDb() {
+  if (!db) {
+    db = new Database(DB_PATH);
+    runMigrations();
+  }
+  return db;
+}
+
 
 // Function to run migrations
 const runMigrations = () => {
+    if (!db) return;
+    
     // Create users table (even though we use a mock user, this is good practice)
     db.exec(`
         CREATE TABLE IF NOT EXISTS users (
@@ -115,8 +125,7 @@ const runMigrations = () => {
     }
 };
 
-runMigrations();
-
-export default db;
-
-    
+// Initialize the DB on module load
+(async () => {
+    await getDb();
+})();
