@@ -71,20 +71,19 @@ export function AddWalletDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-    if (name) {
-      await addWallet(user.uid, {
-        name,
-        icon,
-        currency,
-      });
-      toast({
-          title: "Wallet Added",
-          description: `The wallet "${name}" has been created.`,
-      });
-      onWalletAdded();
-      onOpenChange(false);
-    }
+    if (!user || !name) return;
+    
+    await addWallet(user.uid, {
+      name,
+      icon,
+      currency,
+    });
+    toast({
+        title: "Wallet Added",
+        description: `The wallet "${name}" has been created.`,
+    });
+    onWalletAdded();
+    onOpenChange(false);
   };
 
   const filteredIcons = useMemo(() => {
@@ -168,7 +167,7 @@ export function AddWalletDialog({
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit">Save Wallet</Button>
+            <Button type="submit" disabled={!name}>Save Wallet</Button>
           </DialogFooter>
         </form>
       </DialogContent>
