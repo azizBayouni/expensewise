@@ -6,13 +6,13 @@ import type { Wallet } from '../lib/data';
 import { convertAmount } from './transaction-service';
 import { randomUUID } from 'crypto';
 
-export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'balance' | 'userId'>): Promise<void> {
+export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'balance' | 'userId' | 'linkedCategoryIds'>): Promise<void> {
     const newWallet = { 
         ...newWalletData, 
         id: randomUUID(), 
         userId, 
-        balance: 0,
-        linkedCategoryIds: []
+        balance: 0, 
+        linkedCategoryIds: [] // Correctly initialize as empty array
     };
     const db = await getDb();
     const stmt = db.prepare('INSERT INTO wallets (id, userId, name, currency, balance, icon, linkedCategoryIds) VALUES (?, ?, ?, ?, ?, ?, ?)');
