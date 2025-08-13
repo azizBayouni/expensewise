@@ -26,7 +26,7 @@ export async function getAllWallets(userId: string): Promise<Wallet[]> {
     return results.map(row => ({
         ...row,
         linkedCategoryIds: JSON.parse(row.linkedCategoryIds || '[]'),
-        isDeletable: row.isDeletable !== 0, // Convert 0 to false, 1 to true
+        isDeletable: row.isDeletable !== 0,
     }));
 }
 
