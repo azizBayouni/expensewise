@@ -10,7 +10,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { type Wallet } from '@/lib/data';
+import { type Wallet, type Transaction } from '@/lib/data';
 import { PlusCircle, MoreVertical, Edit, Trash2, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -48,7 +48,7 @@ export default function WalletsPage() {
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
   const [defaultWalletId, setDefaultWalletId] = useState<string | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
@@ -169,7 +169,9 @@ export default function WalletsPage() {
           </div>
         </div>
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {wallets.map((wallet) => (
+          {wallets.map((wallet) => {
+            const currentBalance = getWalletBalance(wallet, transactions);
+            return (
               <Card key={wallet.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleWalletClick(wallet.name)}>
                  <AlertDialog>
                     <DropdownMenu>
@@ -209,11 +211,11 @@ export default function WalletsPage() {
                             
                         </CardHeader>
                         <CardContent>
-                             <div className={`text-2xl font-bold ${getWalletBalance(wallet, transactions) >= 0 ? 'text-foreground' : 'text-destructive'}`}>
-                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(getWalletBalance(wallet, transactions))}
+                             <div className={`text-2xl font-bold ${currentBalance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
+                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(currentBalance)}
                             </div>
                              <p className="text-xs text-muted-foreground">
-                                Initial Balance: {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(wallet.balance)}
+                                Initial Balance: {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(wallet.initialBalance)}
                             </p>
                         </CardContent>
                     </DropdownMenu>
@@ -232,7 +234,7 @@ export default function WalletsPage() {
                     </AlertDialogContent>
                   </AlertDialog>
               </Card>
-          ))}
+          )})}
         </div>
       </div>
       <EditWalletDialog

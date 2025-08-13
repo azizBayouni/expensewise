@@ -52,6 +52,7 @@ export function EditWalletDialog({
   const [name, setName] = useState('');
   const [icon, setIcon] = useState<string | undefined>(undefined);
   const [currency, setCurrency] = useState('');
+  const [initialBalance, setInitialBalance] = useState<number | ''>('');
   const [linkedCategoryIds, setLinkedCategoryIds] = useState<string[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState('');
@@ -71,6 +72,7 @@ export function EditWalletDialog({
           setName(wallet.name);
           setIcon(wallet.icon);
           setCurrency(wallet.currency);
+          setInitialBalance(wallet.initialBalance);
           setLinkedCategoryIds(wallet.linkedCategoryIds || []);
         }
         setIconSearch('');
@@ -85,6 +87,7 @@ export function EditWalletDialog({
         name,
         icon,
         currency,
+        initialBalance: Number(initialBalance) || 0,
         linkedCategoryIds,
       };
       await updateWallet(user.uid, updatedWallet);
@@ -167,6 +170,16 @@ export function EditWalletDialog({
                 <Label htmlFor="name">Name</Label>
                 <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
               </div>
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="initial-balance">Initial Balance</Label>
+                <Input 
+                    id="initial-balance" 
+                    type="number"
+                    value={initialBalance}
+                    onChange={(e) => setInitialBalance(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    placeholder="0.00"
+                />
             </div>
             <div className="space-y-2">
                 <Label htmlFor="currency">Currency</Label>

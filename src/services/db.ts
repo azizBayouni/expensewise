@@ -54,7 +54,7 @@ const runMigrations = () => {
             userId TEXT NOT NULL,
             name TEXT NOT NULL,
             currency TEXT NOT NULL,
-            balance REAL NOT NULL,
+            initialBalance REAL NOT NULL,
             icon TEXT,
             linkedCategoryIds TEXT
         );

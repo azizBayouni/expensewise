@@ -49,7 +49,7 @@ export type Wallet = {
   id: string;
   name: string;
   currency: string;
-  balance: number;
+  initialBalance: number;
   icon?: string;
   linkedCategoryIds?: string[];
   userId: string;
@@ -166,10 +166,9 @@ export const emojiIcons: EmojiIcon[] = [
 
 export function getWalletBalance(wallet: Wallet, allTransactions: Transaction[]) {
     // Start with the wallet's initial balance from the database
-    let balance = wallet.balance || 0;
+    let balance = wallet.initialBalance || 0;
 
-    // Filter transactions relevant to this wallet that have occurred *after* the wallet's creation
-    // (assuming wallet creation is the point of initial balance)
+    // Filter transactions relevant to this wallet
     const relevantTransactions = allTransactions.filter(t => t.wallet === wallet.name);
 
     // Calculate the net effect of transactions

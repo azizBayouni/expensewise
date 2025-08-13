@@ -6,17 +6,16 @@ import type { Wallet } from '../lib/data';
 import { convertAmount } from './transaction-service';
 import { randomUUID } from 'crypto';
 
-export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'balance' | 'userId' | 'linkedCategoryIds'>): Promise<void> {
+export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId' | 'linkedCategoryIds'>): Promise<void> {
     const newWallet = { 
         ...newWalletData, 
         id: randomUUID(), 
         userId, 
-        balance: 0, 
         linkedCategoryIds: []
     };
     const db = await getDb();
-    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, currency, balance, icon, linkedCategoryIds) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.currency, newWallet.balance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds));
+    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, currency, initialBalance, icon, linkedCategoryIds) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.currency, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds));
 }
 
 export async function getAllWallets(userId: string): Promise<Wallet[]> {
@@ -32,8 +31,8 @@ export async function getAllWallets(userId: string): Promise<Wallet[]> {
 export async function updateWallet(userId: string, updatedWallet: Wallet): Promise<void> {
   const { id, ...walletData } = updatedWallet;
   const db = await getDb();
-  const stmt = db.prepare('UPDATE wallets SET name = ?, currency = ?, balance = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?');
-  stmt.run(walletData.name, walletData.currency, walletData.balance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
+  const stmt = db.prepare('UPDATE wallets SET name = ?, currency = ?, initialBalance = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?');
+  stmt.run(walletData.name, walletData.currency, walletData.initialBalance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
 }
 
 export async function deleteWallet(userId: string, walletId: string): Promise<void> {
@@ -88,15 +87,15 @@ export async function convertAllWallets(userId: string, fromCurrency: string, to
     const walletsToConvert = allWallets.filter(w => w.currency === fromCurrency);
 
     const conversionPromises = walletsToConvert.map(async (wallet) => {
-        const convertedBalance = await convertAmount(userId, wallet.balance, fromCurrency, toCurrency);
-        return { ...wallet, balance: convertedBalance, currency: toCurrency };
+        const convertedBalance = await convertAmount(userId, wallet.initialBalance, fromCurrency, toCurrency);
+        return { ...wallet, initialBalance: convertedBalance, currency: toCurrency };
     });
 
     const convertedWallets = await Promise.all(conversionPromises);
 
-    const updateStmt = db.prepare('UPDATE wallets SET balance = ?, currency = ? WHERE id = ?');
+    const updateStmt = db.prepare('UPDATE wallets SET initialBalance = ?, currency = ? WHERE id = ?');
     const updateTransaction = db.transaction((wallets) => {
-        for (const wallet of wallets) updateStmt.run(wallet.balance, wallet.currency, wallet.id);
+        for (const wallet of wallets) updateStmt.run(wallet.initialBalance, wallet.currency, wallet.id);
     });
     updateTransaction(convertedWallets);
 }

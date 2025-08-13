@@ -48,6 +48,7 @@ export function AddWalletDialog({
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('🏦');
   const [currency, setCurrency] = useState('');
+  const [initialBalance, setInitialBalance] = useState<number | ''>('');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState('');
   const { toast } = useToast();
@@ -64,6 +65,7 @@ export function AddWalletDialog({
       // Reset form when dialog opens
       setName('');
       setIcon('🏦');
+      setInitialBalance(0);
       setIconSearch('');
       fetchDefaultData();
     }
@@ -78,6 +80,7 @@ export function AddWalletDialog({
         name,
         icon,
         currency,
+        initialBalance: Number(initialBalance) || 0,
       });
       toast({
           title: "Wallet Added",
@@ -154,6 +157,16 @@ export function AddWalletDialog({
                 <Label htmlFor="name">Name</Label>
                 <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. Vacation Fund" />
               </div>
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="initial-balance">Initial Balance</Label>
+                <Input 
+                    id="initial-balance" 
+                    type="number"
+                    value={initialBalance}
+                    onChange={(e) => setInitialBalance(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    placeholder="0.00"
+                />
             </div>
              <div className="space-y-2">
                 <Label htmlFor="currency">Currency</Label>
