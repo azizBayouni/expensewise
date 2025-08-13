@@ -22,37 +22,36 @@ const runMigrations = (db: Database.Database) => {
     
     db.pragma('journal_mode = WAL');
     
-    // Migration 0: Create all tables with their most basic schema
+    // Create all tables with their correct, final schema
     db.exec(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT, email TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL, parentId TEXT, icon TEXT);`);
-    db.exec(`CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, icon TEXT, linkedCategoryIds TEXT);`);
+    db.exec(`CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, icon TEXT, linkedCategoryIds TEXT, initialBalance REAL NOT NULL DEFAULT 0, isDeletable INTEGER NOT NULL DEFAULT 1);`);
     db.exec(`CREATE TABLE IF NOT EXISTS transactions (id TEXT PRIMARY KEY, userId TEXT NOT NULL, date TEXT NOT NULL, amount REAL NOT NULL, type TEXT NOT NULL, category TEXT NOT NULL, wallet TEXT NOT NULL, description TEXT, currency TEXT NOT NULL, attachments TEXT, eventId TEXT, excludeFromReport INTEGER);`);
     db.exec(`CREATE TABLE IF NOT EXISTS debts (id TEXT PRIMARY KEY, userId TEXT NOT NULL, type TEXT NOT NULL, person TEXT NOT NULL, amount REAL NOT NULL, currency TEXT NOT NULL, dueDate TEXT NOT NULL, status TEXT NOT NULL, note TEXT, payments TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, icon TEXT NOT NULL, status TEXT NOT NULL);`);
     db.exec(`CREATE TABLE IF NOT EXISTS settings (userId TEXT PRIMARY KEY, defaultCurrency TEXT, defaultWalletId TEXT, exchangeRateApiKey TEXT, theme TEXT);`);
     
-    // Migration 1: Add isDeletable to wallets
+    // ----- Migrations for existing databases -----
     try {
-      const columns = db.pragma('table_info(wallets)');
-      const hasIsDeletable = columns.some(col => col.name === 'isDeletable');
-      if (!hasIsDeletable) {
-        db.exec('ALTER TABLE wallets ADD COLUMN isDeletable INTEGER NOT NULL DEFAULT 1');
-      }
-    } catch(e) { console.error("Migration 1 failed but we carry on", e)}
-
-    // Migration 2: Add initialBalance to wallets and rename old balance
-    try {
-        const columns = db.pragma('table_info(wallets)');
-        const hasBalance = columns.some(col => col.name === 'balance');
-        const hasInitialBalance = columns.some(col => col.name === 'initialBalance');
+        const walletColumns = db.pragma('table_info(wallets)');
         
+        // Migration: Add isDeletable if it doesn't exist
+        const hasIsDeletable = walletColumns.some(col => col.name === 'isDeletable');
+        if (!hasIsDeletable) {
+            db.exec('ALTER TABLE wallets ADD COLUMN isDeletable INTEGER NOT NULL DEFAULT 1');
+        }
+
+        // Migration: Rename 'balance' to 'initialBalance' if old column exists
+        const hasBalance = walletColumns.some(col => col.name === 'balance');
+        const hasInitialBalance = walletColumns.some(col => col.name === 'initialBalance');
+
         if (hasBalance && !hasInitialBalance) {
             db.exec('ALTER TABLE wallets RENAME COLUMN balance TO initialBalance');
-        } else if (!hasInitialBalance) {
-            db.exec('ALTER TABLE wallets ADD COLUMN initialBalance REAL NOT NULL DEFAULT 0');
         }
-    } catch(e) { console.error("Migration 2 failed but we carry on", e)}
 
+    } catch(e) { 
+        console.error("A migration failed, which can be normal on first run. Carrying on.", e);
+    }
 
     // --- Post-migration setup ---
 
