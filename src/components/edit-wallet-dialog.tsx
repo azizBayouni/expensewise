@@ -18,14 +18,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { emojiIcons, type Wallet, currencies, type Category } from '@/lib/data';
+import { emojiIcons, type Wallet, type Category } from '@/lib/data';
 import { updateWallet } from '@/services/wallet-service';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
@@ -51,7 +44,6 @@ export function EditWalletDialog({
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState<string | undefined>(undefined);
-  const [currency, setCurrency] = useState('');
   const [initialBalance, setInitialBalance] = useState<number | ''>('');
   const [linkedCategoryIds, setLinkedCategoryIds] = useState<string[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -71,7 +63,6 @@ export function EditWalletDialog({
         if (wallet) {
           setName(wallet.name);
           setIcon(wallet.icon);
-          setCurrency(wallet.currency);
           setInitialBalance(wallet.initialBalance);
           setLinkedCategoryIds(wallet.linkedCategoryIds || []);
         }
@@ -86,7 +77,6 @@ export function EditWalletDialog({
         ...wallet,
         name,
         icon,
-        currency,
         initialBalance: Number(initialBalance) || 0,
         linkedCategoryIds,
       };
@@ -180,22 +170,6 @@ export function EditWalletDialog({
                     onChange={(e) => setInitialBalance(e.target.value === '' ? '' : parseFloat(e.target.value))}
                     placeholder="0.00"
                 />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
-                <Select value={currency} onValueChange={setCurrency}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                     <ScrollArea className="h-48">
-                        {currencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </ScrollArea>
-                  </SelectContent>
-                </Select>
-                 <p className="text-xs text-muted-foreground">
-                    Changing the currency will not convert the balance.
-                </p>
             </div>
              <div className="space-y-2">
                 <Label htmlFor="linked-categories">Linked Categories</Label>

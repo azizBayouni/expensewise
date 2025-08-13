@@ -13,7 +13,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { type Wallet, type Transaction } from '@/lib/data';
 import { PlusCircle, MoreVertical, Edit, Trash2, CheckCircle } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +40,7 @@ import { getAllTransactions } from '@/services/transaction-service';
 import { getWalletBalance } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/components/auth-provider';
+import { getDefaultCurrency } from '@/services/settings-service';
 
 export default function WalletsPage() {
   const { user } = useAuth();
@@ -51,6 +51,7 @@ export default function WalletsPage() {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [defaultCurrency, setDefaultCurrency] = useState('USD');
   const { toast } = useToast();
   const router = useRouter();
   
@@ -58,15 +59,17 @@ export default function WalletsPage() {
     if (!user) return;
     setIsLoading(true);
     try {
-        const [wals, trans, defWallet] = await Promise.all([
+        const [wals, trans, defWallet, currency] = await Promise.all([
             getAllWallets(user.uid),
             getAllTransactions(user.uid),
-            getDefaultWallet(user.uid)
+            getDefaultWallet(user.uid),
+            getDefaultCurrency(user.uid)
         ]);
         
         setWallets(wals);
         setTransactions(trans);
         setDefaultWalletId(defWallet);
+        setDefaultCurrency(currency);
     } catch (error) {
         console.error("Error fetching wallets page data:", error);
     } finally {
@@ -192,7 +195,7 @@ export default function WalletsPage() {
                                 <div className="space-y-1">
                                     <CardTitle>{wallet.name}</CardTitle>
                                     <CardDescription>
-                                        <Badge variant="outline">{wallet.currency}</Badge>
+                                        Current Balance
                                     </CardDescription>
                                 </div>
                             </div>
@@ -227,12 +230,12 @@ export default function WalletsPage() {
                         </CardHeader>
                         <CardContent className="flex-grow">
                              <div className={`text-2xl font-bold ${currentBalance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
-                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(currentBalance)}
+                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: defaultCurrency }).format(currentBalance)}
                             </div>
                         </CardContent>
                         <CardFooter>
                              <p className="text-xs text-muted-foreground">
-                                Initial Balance: {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(wallet.initialBalance)}
+                                Initial Balance: {new Intl.NumberFormat('en-US', { style: 'currency', currency: defaultCurrency }).format(wallet.initialBalance)}
                             </p>
                         </CardFooter>
                     </DropdownMenu>

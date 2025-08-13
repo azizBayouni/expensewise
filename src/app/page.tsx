@@ -42,7 +42,7 @@ export default function Dashboard() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [defaultCurrency, setDefaultCurrency] = useState('SAR');
+  const [defaultCurrency, setDefaultCurrency] = useState('USD');
   const [overviewTimespan, setOverviewTimespan] = useState<'6m' | '12m' | 'ytd'>('6m');
   const [isLoading, setIsLoading] = useState(true);
   

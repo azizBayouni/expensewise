@@ -18,18 +18,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { emojiIcons, currencies } from '@/lib/data';
+import { emojiIcons } from '@/lib/data';
 import { addWallet } from '@/services/wallet-service';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { getDefaultCurrency } from '@/services/settings-service';
 import { ScrollArea } from './ui/scroll-area';
 import { useAuth } from './auth-provider';
 
@@ -47,7 +39,6 @@ export function AddWalletDialog({
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('🏦');
-  const [currency, setCurrency] = useState('');
   const [initialBalance, setInitialBalance] = useState<number | ''>('');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState('');
@@ -55,8 +46,7 @@ export function AddWalletDialog({
   
   const resetForm = useCallback(async () => {
     if (user) {
-        const defaultCurrency = await getDefaultCurrency(user.uid);
-        setCurrency(defaultCurrency);
+        // No default currency to fetch anymore
     }
     setName('');
     setIcon('🏦');
@@ -78,7 +68,6 @@ export function AddWalletDialog({
       await addWallet(user.uid, {
         name,
         icon,
-        currency,
         initialBalance: Number(initialBalance) || 0,
       });
       toast({
@@ -167,19 +156,6 @@ export function AddWalletDialog({
                     placeholder="0.00"
                 />
             </div>
-             <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
-                <Select value={currency} onValueChange={setCurrency}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <ScrollArea className="h-48">
-                        {currencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </ScrollArea>
-                  </SelectContent>
-                </Select>
-              </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>

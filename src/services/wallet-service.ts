@@ -15,13 +15,13 @@ export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id'
         isDeletable: 1, // All user-created wallets are deletable
     };
     const db = await getDb();
-    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, currency, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-    stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.currency, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable);
+    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable);
 }
 
 export async function getAllWallets(userId: string): Promise<Wallet[]> {
     const db = await getDb();
-    const stmt = db.prepare('SELECT * FROM wallets WHERE userId = ? ORDER BY isDeletable DESC, name ASC');
+    const stmt = db.prepare('SELECT id, name, initialBalance, icon, linkedCategoryIds, isDeletable, userId FROM wallets WHERE userId = ? ORDER BY isDeletable DESC, name ASC');
     const results = stmt.all(userId) as any[];
     return results.map(row => ({
         ...row,
@@ -33,8 +33,8 @@ export async function getAllWallets(userId: string): Promise<Wallet[]> {
 export async function updateWallet(userId: string, updatedWallet: Wallet): Promise<void> {
   const { id, ...walletData } = updatedWallet;
   const db = await getDb();
-  const stmt = db.prepare('UPDATE wallets SET name = ?, currency = ?, initialBalance = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?');
-  stmt.run(walletData.name, walletData.currency, walletData.initialBalance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
+  const stmt = db.prepare('UPDATE wallets SET name = ?, initialBalance = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?');
+  stmt.run(walletData.name, walletData.initialBalance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
 }
 
 export async function deleteWallet(userId: string, walletId: string): Promise<void> {
@@ -90,18 +90,12 @@ export async function convertAllWallets(userId: string, fromCurrency: string, to
     const db = await getDb();
     const allWallets = await getAllWallets(userId);
     
-    const walletsToConvert = allWallets.filter(w => w.currency === fromCurrency);
+    // Wallets no longer have currency, so this function is a no-op, but we'll keep it for compatibility if needed.
+    // If we wanted to convert initial balances, we'd need to know their original currency.
+    // Since we removed that, we can't do a currency-specific conversion anymore.
+    // We'll leave the function here, but it won't do anything.
 
-    const conversionPromises = walletsToConvert.map(async (wallet) => {
-        const convertedBalance = await convertAmount(userId, wallet.initialBalance, fromCurrency, toCurrency);
-        return { ...wallet, initialBalance: convertedBalance, currency: toCurrency };
-    });
-
-    const convertedWallets = await Promise.all(conversionPromises);
-
-    const updateStmt = db.prepare('UPDATE wallets SET initialBalance = ?, currency = ? WHERE id = ?');
-    const updateTransaction = db.transaction((wallets) => {
-        for (const wallet of wallets) updateStmt.run(wallet.initialBalance, wallet.currency, wallet.id);
-    });
-    updateTransaction(convertedWallets);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('walletsUpdated'));
+    }
 }

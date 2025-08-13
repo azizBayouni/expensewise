@@ -48,7 +48,6 @@ export type Transaction = {
 export type Wallet = {
   id: string;
   name: string;
-  currency: string;
   initialBalance: number;
   icon?: string;
   linkedCategoryIds?: string[];

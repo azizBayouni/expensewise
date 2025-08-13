@@ -44,7 +44,7 @@ const runMigrations = (db: Database.Database) => {
     // Create all tables if they don't exist
     db.exec(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT, email TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL, parentId TEXT, icon TEXT);`);
-    db.exec(`CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, currency TEXT NOT NULL, initialBalance REAL NOT NULL, icon TEXT, linkedCategoryIds TEXT);`);
+    db.exec(`CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, initialBalance REAL NOT NULL, icon TEXT, linkedCategoryIds TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS transactions (id TEXT PRIMARY KEY, userId TEXT NOT NULL, date TEXT NOT NULL, amount REAL NOT NULL, type TEXT NOT NULL, category TEXT NOT NULL, wallet TEXT NOT NULL, description TEXT, currency TEXT NOT NULL, attachments TEXT, eventId TEXT, excludeFromReport INTEGER);`);
     db.exec(`CREATE TABLE IF NOT EXISTS debts (id TEXT PRIMARY KEY, userId TEXT NOT NULL, type TEXT NOT NULL, person TEXT NOT NULL, amount REAL NOT NULL, currency TEXT NOT NULL, dueDate TEXT NOT NULL, status TEXT NOT NULL, note TEXT, payments TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, icon TEXT NOT NULL, status TEXT NOT NULL);`);
@@ -96,8 +96,8 @@ const runMigrations = (db: Database.Database) => {
     const mainWalletStmt = db.prepare('SELECT id from wallets WHERE userId = ? AND name = ?');
     let mainWallet = mainWalletStmt.get('dev-user', 'Main Wallet');
     if (!mainWallet) {
-        const insertWallet = db.prepare('INSERT INTO wallets (id, userId, name, currency, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-        insertWallet.run(randomUUID(), 'dev-user', 'Main Wallet', 'USD', 0, '🏦', '[]', 0);
+        const insertWallet = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        insertWallet.run(randomUUID(), 'dev-user', 'Main Wallet', 0, '🏦', '[]', 0);
     } else {
         // Ensure the existing main wallet is not deletable
         const updateStmt = db.prepare('UPDATE wallets SET isDeletable = 0 WHERE id = ?');
