@@ -71,7 +71,12 @@ export async function deleteDebt(userId: string, debtId: string): Promise<void> 
     }
 }
 
-export async function addPaymentToDebt(userId: string, debt: Debt, paymentAmount: number): Promise<Debt> {
+export async function addPaymentToDebt(userId: string, debtId: string, paymentAmount: number): Promise<Debt | null> {
+    const debt = await getDebtById(userId, debtId);
+    if (!debt) {
+        throw new Error('Debt not found');
+    }
+
     const newPayment: Payment = {
         id: randomUUID(),
         date: new Date().toISOString(),
