@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -102,21 +101,30 @@ export default function WalletsPage() {
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteClick = (e: React.MouseEvent, walletId: string) => {
+  const handleDeleteClick = async (e: React.MouseEvent, walletId: string) => {
     e.stopPropagation();
     if (!user) return;
-    deleteWallet(user.uid, walletId);
-    toast({
-        title: "Wallet Deleted",
-        description: "The wallet has been successfully deleted.",
-        variant: "destructive"
-    })
+    try {
+      await deleteWallet(user.uid, walletId);
+      toast({
+          title: "Wallet Deleted",
+          description: "The wallet has been successfully deleted.",
+          variant: "destructive"
+      });
+      fetchData();
+    } catch (error) {
+       toast({
+          title: "Deletion Failed",
+          description: "Could not delete the wallet.",
+          variant: "destructive"
+      });
+    }
   };
 
-  const handleSetDefault = (e: React.MouseEvent, walletId: string) => {
+  const handleSetDefault = async (e: React.MouseEvent, walletId: string) => {
     e.stopPropagation();
     if (!user) return;
-    setDefaultWallet(user.uid, walletId);
+    await setDefaultWallet(user.uid, walletId);
     setDefaultWalletId(walletId);
     toast({
       title: "Default Wallet Set",
@@ -211,7 +219,7 @@ export default function WalletsPage() {
                         <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                         <AlertDialogDescription>
                             This action cannot be undone. This will permanently delete this
-                            wallet and all associated transactions.
+                            wallet. Associated transactions will NOT be deleted.
                         </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

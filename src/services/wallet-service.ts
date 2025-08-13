@@ -31,8 +31,8 @@ export async function getAllWallets(userId: string): Promise<Wallet[]> {
 export async function updateWallet(userId: string, updatedWallet: Wallet): Promise<void> {
   const { id, ...walletData } = updatedWallet;
   const db = await getDb();
-  const stmt = db.prepare('UPDATE wallets SET name = ?, currency = ?, balance = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?');
-  stmt.run(walletData.name, walletData.currency, walletData.balance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
+  const stmt = db.prepare('UPDATE wallets SET name = ?, currency = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?');
+  stmt.run(walletData.name, walletData.currency, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
 }
 
 export async function deleteWallet(userId: string, walletId: string): Promise<void> {
