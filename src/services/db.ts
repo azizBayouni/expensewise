@@ -20,11 +20,15 @@ let db: Database.Database;
 // Function to get the current database version
 function getDbVersion(db: Database.Database): number {
     try {
+        db.exec(`CREATE TABLE IF NOT EXISTS db_version (id INTEGER PRIMARY KEY, version INTEGER NOT NULL);`);
         const stmt = db.prepare('SELECT version FROM db_version WHERE id = 1');
         const result = stmt.get() as { version: number } | undefined;
-        return result ? result.version : 0;
+        if (!result) {
+            db.exec('INSERT INTO db_version (id, version) VALUES (1, 0)');
+            return 0;
+        }
+        return result.version;
     } catch (e) {
-        // This will happen if the table doesn't exist yet
         return 0;
     }
 }
@@ -44,41 +48,49 @@ const runMigrations = (db: Database.Database) => {
     // Create all tables if they don't exist
     db.exec(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT, email TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL, parentId TEXT, icon TEXT);`);
-    db.exec(`CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, initialBalance REAL NOT NULL, icon TEXT, linkedCategoryIds TEXT);`);
+    db.exec(`CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, initialBalance REAL NOT NULL DEFAULT 0, icon TEXT, linkedCategoryIds TEXT, isDeletable INTEGER NOT NULL DEFAULT 1);`);
     db.exec(`CREATE TABLE IF NOT EXISTS transactions (id TEXT PRIMARY KEY, userId TEXT NOT NULL, date TEXT NOT NULL, amount REAL NOT NULL, type TEXT NOT NULL, category TEXT NOT NULL, wallet TEXT NOT NULL, description TEXT, currency TEXT NOT NULL, attachments TEXT, eventId TEXT, excludeFromReport INTEGER);`);
     db.exec(`CREATE TABLE IF NOT EXISTS debts (id TEXT PRIMARY KEY, userId TEXT NOT NULL, type TEXT NOT NULL, person TEXT NOT NULL, amount REAL NOT NULL, currency TEXT NOT NULL, dueDate TEXT NOT NULL, status TEXT NOT NULL, note TEXT, payments TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, icon TEXT NOT NULL, status TEXT NOT NULL);`);
     db.exec(`CREATE TABLE IF NOT EXISTS settings (userId TEXT PRIMARY KEY, defaultCurrency TEXT, defaultWalletId TEXT, exchangeRateApiKey TEXT, theme TEXT);`);
-    db.exec(`CREATE TABLE IF NOT EXISTS db_version (id INTEGER PRIMARY KEY, version INTEGER NOT NULL);`);
-
-
+    
     let currentVersion = getDbVersion(db);
-
-    if (currentVersion < 1) {
-        db.exec('INSERT OR IGNORE INTO db_version (id, version) VALUES (1, 0)');
-        const checkStmt = db.prepare('SELECT version FROM db_version WHERE id = 1');
-        const result = checkStmt.get() as { version: number } | undefined;
-        if (!result) {
-            db.exec('INSERT INTO db_version (id, version) VALUES (1, 1)');
-        } else {
-             setDbVersion(db, 1);
-        }
-        currentVersion = 1;
-    }
 
     if (currentVersion < 2) {
         try {
             console.log("Running migration 2: Add isDeletable to wallets");
             db.exec('ALTER TABLE wallets ADD COLUMN isDeletable INTEGER NOT NULL DEFAULT 1');
-            setDbVersion(db, 2);
         } catch (e: any) {
-            if (!e.message.includes('duplicate column name')) {
+             if (!e.message.includes('duplicate column name')) {
                 console.error("Migration 2 failed:", e);
                 throw e;
-            } else {
-                 // The column already exists, so we can consider the migration successful.
-                 setDbVersion(db, 2);
             }
+        } finally {
+            setDbVersion(db, 2);
+            currentVersion = 2;
+        }
+    }
+    
+    if (currentVersion < 3) {
+        try {
+            console.log("Running migration 3: Rename balance to initialBalance in wallets");
+            const columns = db.pragma('table_info(wallets)');
+            const balanceColumn = columns.find(col => col.name === 'balance');
+            const initialBalanceColumn = columns.find(col => col.name === 'initialBalance');
+            
+            if (balanceColumn && !initialBalanceColumn) {
+                 db.exec('ALTER TABLE wallets RENAME COLUMN balance TO initialBalance');
+            } else if (!initialBalanceColumn) {
+                 db.exec('ALTER TABLE wallets ADD COLUMN initialBalance REAL NOT NULL DEFAULT 0');
+            }
+        } catch(e: any) {
+            if (!e.message.includes('duplicate column name')) {
+                 console.error("Migration 3 failed:", e);
+                throw e;
+            }
+        } finally {
+            setDbVersion(db, 3);
+            currentVersion = 3;
         }
     }
     
