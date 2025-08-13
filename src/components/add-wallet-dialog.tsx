@@ -73,17 +73,25 @@ export function AddWalletDialog({
     e.preventDefault();
     if (!user || !name) return;
     
-    await addWallet(user.uid, {
-      name,
-      icon,
-      currency,
-    });
-    toast({
-        title: "Wallet Added",
-        description: `The wallet "${name}" has been created.`,
-    });
-    onWalletAdded();
-    onOpenChange(false);
+    try {
+      await addWallet(user.uid, {
+        name,
+        icon,
+        currency,
+      });
+      toast({
+          title: "Wallet Added",
+          description: `The wallet "${name}" has been created.`,
+      });
+      onWalletAdded();
+      onOpenChange(false);
+    } catch (error) {
+       toast({
+          title: "Error adding wallet",
+          description: "An unexpected error occurred.",
+          variant: "destructive"
+      });
+    }
   };
 
   const filteredIcons = useMemo(() => {
