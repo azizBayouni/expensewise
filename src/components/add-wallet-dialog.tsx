@@ -45,14 +45,11 @@ export function AddWalletDialog({
   const { toast } = useToast();
   
   const resetForm = useCallback(async () => {
-    if (user) {
-        // No default currency to fetch anymore
-    }
     setName('');
     setIcon('🏦');
     setInitialBalance(0);
     setIconSearch('');
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -69,6 +66,8 @@ export function AddWalletDialog({
         name,
         icon,
         initialBalance: Number(initialBalance) || 0,
+        isDeletable: true,
+        linkedCategoryIds: [],
       });
       toast({
           title: "Wallet Added",

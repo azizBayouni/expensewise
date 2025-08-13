@@ -1,22 +1,19 @@
 
-
 'use server';
 
 import { getDb } from './db';
 import type { Wallet } from '../lib/data';
 import { randomUUID } from 'crypto';
 
-export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId' | 'isDeletable' | 'linkedCategoryIds'>): Promise<void> {
-    const newWallet: Omit<Wallet, 'id' | 'userId'> & {isDeletable: 1, linkedCategoryIds: string[]} = { 
-        name: newWalletData.name,
-        initialBalance: newWalletData.initialBalance,
-        icon: newWalletData.icon,
-        isDeletable: 1, // All user-created wallets are deletable
-        linkedCategoryIds: [],
+export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId'>): Promise<void> {
+    const newWallet: Wallet = { 
+        ...newWalletData,
+        id: randomUUID(),
+        userId,
     };
     const db = await getDb();
     const stmt = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    stmt.run(randomUUID(), userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable);
+    stmt.run(newWallet.id, userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds || []), newWallet.isDeletable ? 1 : 0);
 }
 
 export async function getAllWallets(userId: string): Promise<Wallet[]> {
