@@ -84,3 +84,4 @@ export async function clearDefaultWallet(userId: string): Promise<void> {
     const stmt = db.prepare('UPDATE settings SET defaultWalletId = NULL WHERE userId = ?');
     stmt.run(userId);
 }
+
