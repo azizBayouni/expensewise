@@ -22,18 +22,13 @@ echo "----------------------------------------"
 git reset --hard HEAD
 
 echo "----------------------------------------"
-echo "Forcefully removing untracked files..."
-echo "----------------------------------------"
-git clean -df
-
-echo "----------------------------------------"
 echo "Pulling latest changes from Git..."
 echo "----------------------------------------"
 git pull
 
 echo "----------------------------------------"
 echo "Building and starting new Docker containers..."
-echo "This will remove old containers, volumes, and images."
+echo "This will remove old containers and images if necessary."
 echo "----------------------------------------"
 docker-compose up --build --remove-orphans -d
 
