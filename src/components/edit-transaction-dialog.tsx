@@ -226,14 +226,14 @@ export function EditTransactionDialog({
   };
   
   const handleAmountBlur = () => {
-    if (originalAmount && transactionCurrency && defaultCurrency) {
+    if (originalAmount) {
        convertAmount(Number(originalAmount), transactionCurrency, defaultCurrency);
     }
   };
 
   const handleCurrencyChange = (newCurrency: string) => {
     setTransactionCurrency(newCurrency);
-    if (originalAmount && defaultCurrency) {
+    if (originalAmount) {
       convertAmount(Number(originalAmount), newCurrency, defaultCurrency);
     }
   };
@@ -400,7 +400,7 @@ export function EditTransactionDialog({
                 <SelectContent>
                     {allWallets.map((w) => (
                     <SelectItem key={w.id} value={w.name}>
-                        {w.name} ({w.currency})
+                        {w.name}
                     </SelectItem>
                     ))}
                 </SelectContent>

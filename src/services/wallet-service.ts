@@ -3,7 +3,6 @@
 
 import { getDb } from './db';
 import type { Wallet } from '../lib/data';
-import { convertAmount } from './transaction-service';
 import { randomUUID } from 'crypto';
 
 export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId' | 'linkedCategoryIds' | 'isDeletable'>): Promise<void> {
@@ -87,14 +86,8 @@ export async function clearDefaultWallet(userId: string): Promise<void> {
 }
 
 export async function convertAllWallets(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
-    const db = await getDb();
-    const allWallets = await getAllWallets(userId);
-    
-    // Wallets no longer have currency, so this function is a no-op, but we'll keep it for compatibility if needed.
-    // If we wanted to convert initial balances, we'd need to know their original currency.
-    // Since we removed that, we can't do a currency-specific conversion anymore.
-    // We'll leave the function here, but it won't do anything.
-
+    // This function is now a no-op since wallets no longer have an independent currency.
+    // It's kept for potential future use or to avoid breaking calls if not all are updated at once.
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('walletsUpdated'));
     }

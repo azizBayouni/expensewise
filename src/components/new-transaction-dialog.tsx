@@ -346,7 +346,7 @@ export function NewTransactionDialog({
                 <SelectContent>
                     {allWallets.map((w) => (
                     <SelectItem key={w.id} value={w.name}>
-                        {w.name} ({w.currency})
+                        {w.name}
                     </SelectItem>
                     ))}
                 </SelectContent>
