@@ -19,11 +19,15 @@ let db: Database.Database;
 // Function to get the current database version
 function getDbVersion(): number {
     try {
+        db.exec(`CREATE TABLE IF NOT EXISTS db_version (
+            id INTEGER PRIMARY KEY,
+            version INTEGER NOT NULL
+        );`);
         const stmt = db.prepare('SELECT version FROM db_version WHERE id = 1');
         const result = stmt.get() as { version: number } | undefined;
         return result ? result.version : 0;
     } catch (e) {
-        // This happens if the db_version table doesn't exist yet.
+        console.error("Error getting DB version:", e);
         return 0;
     }
 }
@@ -32,10 +36,8 @@ function getDbVersion(): number {
 const runMigrations = () => {
     if (!db) return;
     
-    // Enable WAL mode for better concurrency
     db.pragma('journal_mode = WAL');
 
-    // Migration 1: Initial Setup
     db.exec(`
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
@@ -112,12 +114,6 @@ const runMigrations = () => {
             theme TEXT
         );
     `);
-     db.exec(`
-        CREATE TABLE IF NOT EXISTS db_version (
-            id INTEGER PRIMARY KEY,
-            version INTEGER NOT NULL
-        );
-    `);
 
     let currentVersion = getDbVersion();
 
@@ -126,18 +122,21 @@ const runMigrations = () => {
         currentVersion = 1;
     }
 
-    // Migration 2: Add isDeletable to wallets
     if (currentVersion < 2) {
         try {
-            db.exec('ALTER TABLE wallets ADD COLUMN isDeletable INTEGER DEFAULT 1');
+            console.log("Running migration 2: Add isDeletable to wallets");
+            db.exec('ALTER TABLE wallets ADD COLUMN isDeletable INTEGER NOT NULL DEFAULT 1');
             db.exec('UPDATE db_version SET version = 2 WHERE id = 1');
             currentVersion = 2;
-        } catch (e) {
-            console.error("Migration 2 failed:", e);
+        } catch (e: any) {
+             // Ignore error if column already exists
+            if (!e.message.includes('duplicate column name')) {
+                console.error("Migration 2 failed:", e);
+                throw e; // re-throw if it's not a "duplicate column" error
+            }
         }
     }
     
-    // Ensure dev user exists
     const userStmt = db.prepare('SELECT id FROM users WHERE id = ?');
     const user = userStmt.get('dev-user');
     if (!user) {
@@ -145,10 +144,9 @@ const runMigrations = () => {
         insertUser.run('dev-user', 'Dev User', 'dev@expensewise.app');
     }
     
-    // Ensure a default wallet exists
     try {
-        const walletStmt = db.prepare('SELECT id FROM wallets WHERE userId = ? AND isDeletable = 0');
-        const mainWallet = walletStmt.get('dev-user');
+        const mainWalletStmt = db.prepare('SELECT id FROM wallets WHERE userId = ? AND isDeletable = 0');
+        const mainWallet = mainWalletStmt.get('dev-user');
         if (!mainWallet) {
             const insertWallet = db.prepare('INSERT INTO wallets (id, userId, name, currency, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
             insertWallet.run(randomUUID(), 'dev-user', 'Main Wallet', 'USD', 0, '🏦', '[]', 0);
@@ -167,7 +165,6 @@ export async function getDb() {
   return db;
 }
 
-// Initialize the DB on module load
 (async () => {
     await getDb();
 })();
