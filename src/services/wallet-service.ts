@@ -5,7 +5,7 @@ import { getDb } from './db';
 import type { Wallet } from '../lib/data';
 import { randomUUID } from 'crypto';
 
-export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId' | 'isDeletable'>): Promise<void> {
+export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId' | 'linkedCategoryIds' | 'isDeletable'>): Promise<void> {
     const newWallet: Wallet = { 
         ...newWalletData,
         id: randomUUID(),
@@ -15,12 +15,12 @@ export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id'
     };
     const db = await getDb();
     const stmt = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    stmt.run(newWallet.id, userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds || []), newWallet.isDeletable ? 1 : 0);
+    stmt.run(newWallet.id, userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable ? 1 : 0);
 }
 
 export async function getAllWallets(userId: string): Promise<Wallet[]> {
     const db = await getDb();
-    const stmt = db.prepare('SELECT id, name, initialBalance, icon, linkedCategoryIds, isDeletable, userId FROM wallets WHERE userId = ? ORDER BY isDeletable ASC, name ASC');
+    const stmt = db.prepare('SELECT id, name, initialBalance, icon, linkedCategoryIds, isDeletable, userId FROM wallets WHERE userId = ? ORDER BY isDeletable DESC, name ASC');
     const results = stmt.all(userId) as any[];
     return results.map(row => ({
         ...row,

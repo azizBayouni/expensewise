@@ -50,7 +50,7 @@ export type Wallet = {
   name: string;
   initialBalance: number;
   icon?: string;
-  linkedCategoryIds?: string[];
+  linkedCategoryIds: string[];
   userId: string;
   isDeletable: boolean;
 };
