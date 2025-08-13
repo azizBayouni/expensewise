@@ -194,3 +194,4 @@ export function getCategoryDepth(categoryId: string | null, allCategories: Categ
     }
     return depth;
 }
+
