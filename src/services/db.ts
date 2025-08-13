@@ -17,13 +17,18 @@ let db: Database.Database;
 // Function to check if a column exists in a table
 function columnExists(tableName: string, columnName: string): boolean {
     if (!db) return false;
-    const stmt = db.prepare(`
-        SELECT COUNT(*) as count
-        FROM pragma_table_info(?)
-        WHERE name = ?
-    `);
-    const result = stmt.get(tableName) as { count: number };
-    return result.count > 0;
+    try {
+        const stmt = db.prepare(`
+            SELECT COUNT(*) as count
+            FROM pragma_table_info(?)
+            WHERE name = ?
+        `);
+        const result = stmt.get(tableName, columnName) as { count: number };
+        return result.count > 0;
+    } catch(e) {
+        console.error(`Error checking if column ${columnName} exists in ${tableName}:`, e);
+        return false;
+    }
 }
 
 export async function getDb() {
@@ -39,6 +44,9 @@ export async function getDb() {
 const runMigrations = () => {
     if (!db) return;
     
+    // Enable WAL mode for better concurrency
+    db.pragma('journal_mode = WAL');
+
     // Create users table (even though we use a mock user, this is good practice)
     db.exec(`
         CREATE TABLE IF NOT EXISTS users (
@@ -143,11 +151,26 @@ const runMigrations = () => {
     }
     
     // Ensure a default wallet exists
-    const walletStmt = db.prepare('SELECT id FROM wallets WHERE userId = ? AND isDeletable = 0');
-    const mainWallet = walletStmt.get('dev-user');
-    if (!mainWallet) {
-        const insertWallet = db.prepare('INSERT INTO wallets (id, userId, name, currency, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-        insertWallet.run(randomUUID(), 'dev-user', 'Main Wallet', 'USD', 0, '🏦', '[]', 0);
+    try {
+        const walletStmt = db.prepare('SELECT id FROM wallets WHERE userId = ? AND isDeletable = 0');
+        const mainWallet = walletStmt.get('dev-user');
+        if (!mainWallet) {
+            const insertWallet = db.prepare('INSERT INTO wallets (id, userId, name, currency, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+            insertWallet.run(randomUUID(), 'dev-user', 'Main Wallet', 'USD', 0, '🏦', '[]', 0);
+        }
+    } catch(e) {
+        // This will fail if the column doesn't exist yet, which is fine, we handle that above.
+        // We run this again after migration just in case.
+        if (!columnExists('wallets', 'isDeletable')) {
+             console.error("Migration failed, `isDeletable` column not added.")
+        } else {
+            const walletStmt = db.prepare('SELECT id FROM wallets WHERE userId = ? AND isDeletable = 0');
+            const mainWallet = walletStmt.get('dev-user');
+            if (!mainWallet) {
+                const insertWallet = db.prepare('INSERT INTO wallets (id, userId, name, currency, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+                insertWallet.run(randomUUID(), 'dev-user', 'Main Wallet', 'USD', 0, '🏦', '[]', 0);
+            }
+        }
     }
 };
 
