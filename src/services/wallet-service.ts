@@ -6,22 +6,22 @@ import { getDb } from './db';
 import type { Wallet } from '../lib/data';
 import { randomUUID } from 'crypto';
 
-export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId' | 'linkedCategoryIds' | 'isDeletable'>): Promise<void> {
-    const newWallet = { 
-        ...newWalletData, 
-        id: randomUUID(), 
-        userId, 
-        linkedCategoryIds: [],
+export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId' | 'isDeletable' | 'linkedCategoryIds'>): Promise<void> {
+    const newWallet: Omit<Wallet, 'id' | 'userId'> & {isDeletable: 1, linkedCategoryIds: string[]} = { 
+        name: newWalletData.name,
+        initialBalance: newWalletData.initialBalance,
+        icon: newWalletData.icon,
         isDeletable: 1, // All user-created wallets are deletable
+        linkedCategoryIds: [],
     };
     const db = await getDb();
     const stmt = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable);
+    stmt.run(randomUUID(), userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable);
 }
 
 export async function getAllWallets(userId: string): Promise<Wallet[]> {
     const db = await getDb();
-    const stmt = db.prepare('SELECT id, name, initialBalance, icon, linkedCategoryIds, isDeletable, userId FROM wallets WHERE userId = ? ORDER BY isDeletable DESC, name ASC');
+    const stmt = db.prepare('SELECT id, name, initialBalance, icon, linkedCategoryIds, isDeletable, userId FROM wallets WHERE userId = ? ORDER BY isDeletable ASC, name ASC');
     const results = stmt.all(userId) as any[];
     return results.map(row => ({
         ...row,
@@ -84,12 +84,4 @@ export async function clearDefaultWallet(userId: string): Promise<void> {
     const db = await getDb();
     const stmt = db.prepare('UPDATE settings SET defaultWalletId = NULL WHERE userId = ?');
     stmt.run(userId);
-}
-
-export async function convertAllWallets(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
-    // This function is now a no-op since wallets no longer have an independent currency.
-    // It's kept for potential future use or to avoid breaking calls if not all are updated at once.
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('walletsUpdated'));
-    }
 }
