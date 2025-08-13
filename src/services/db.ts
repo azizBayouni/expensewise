@@ -2,6 +2,7 @@
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 
 const DB_PATH = path.join(process.cwd(), 'db', 'expensewise.db');
 
@@ -12,6 +13,18 @@ if (!fs.existsSync(dbDir)) {
 }
 
 let db: Database.Database;
+
+// Function to check if a column exists in a table
+function columnExists(tableName: string, columnName: string): boolean {
+    if (!db) return false;
+    const stmt = db.prepare(`
+        SELECT COUNT(*) as count
+        FROM pragma_table_info(?)
+        WHERE name = ?
+    `);
+    const result = stmt.get(tableName) as { count: number };
+    return result.count > 0;
+}
 
 export async function getDb() {
   if (!db) {
@@ -56,10 +69,14 @@ const runMigrations = () => {
             currency TEXT NOT NULL,
             initialBalance REAL NOT NULL,
             icon TEXT,
-            linkedCategoryIds TEXT,
-            isDeletable INTEGER DEFAULT 1
+            linkedCategoryIds TEXT
         );
     `);
+    
+    // **MIGRATION**: Add isDeletable column to wallets if it doesn't exist
+    if (!columnExists('wallets', 'isDeletable')) {
+        db.exec('ALTER TABLE wallets ADD COLUMN isDeletable INTEGER DEFAULT 1');
+    }
     
     // Create transactions table
     db.exec(`
