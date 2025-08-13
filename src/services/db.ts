@@ -48,32 +48,32 @@ const runMigrations = (db: Database.Database) => {
     // Create all tables if they don't exist
     db.exec(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT, email TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL, parentId TEXT, icon TEXT);`);
-    db.exec(`CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, initialBalance REAL NOT NULL DEFAULT 0, icon TEXT, linkedCategoryIds TEXT, isDeletable INTEGER NOT NULL DEFAULT 1);`);
+    db.exec(`CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, initialBalance REAL NOT NULL DEFAULT 0, icon TEXT, linkedCategoryIds TEXT, isDeletable INTEGER);`);
     db.exec(`CREATE TABLE IF NOT EXISTS transactions (id TEXT PRIMARY KEY, userId TEXT NOT NULL, date TEXT NOT NULL, amount REAL NOT NULL, type TEXT NOT NULL, category TEXT NOT NULL, wallet TEXT NOT NULL, description TEXT, currency TEXT NOT NULL, attachments TEXT, eventId TEXT, excludeFromReport INTEGER);`);
     db.exec(`CREATE TABLE IF NOT EXISTS debts (id TEXT PRIMARY KEY, userId TEXT NOT NULL, type TEXT NOT NULL, person TEXT NOT NULL, amount REAL NOT NULL, currency TEXT NOT NULL, dueDate TEXT NOT NULL, status TEXT NOT NULL, note TEXT, payments TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, icon TEXT NOT NULL, status TEXT NOT NULL);`);
     db.exec(`CREATE TABLE IF NOT EXISTS settings (userId TEXT PRIMARY KEY, defaultCurrency TEXT, defaultWalletId TEXT, exchangeRateApiKey TEXT, theme TEXT);`);
     
     let currentVersion = getDbVersion(db);
-
-    if (currentVersion < 2) {
+    
+    if (currentVersion < 1) {
         try {
-            console.log("Running migration 2: Add isDeletable to wallets");
+            console.log("Running migration 1: Add isDeletable to wallets");
             db.exec('ALTER TABLE wallets ADD COLUMN isDeletable INTEGER NOT NULL DEFAULT 1');
         } catch (e: any) {
              if (!e.message.includes('duplicate column name')) {
-                console.error("Migration 2 failed:", e);
+                console.error("Migration 1 failed:", e);
                 throw e;
             }
         } finally {
-            setDbVersion(db, 2);
-            currentVersion = 2;
+            setDbVersion(db, 1);
+            currentVersion = 1;
         }
     }
     
-    if (currentVersion < 3) {
+    if (currentVersion < 2) {
         try {
-            console.log("Running migration 3: Rename balance to initialBalance in wallets");
+            console.log("Running migration 2: Rename balance to initialBalance in wallets");
             const columns = db.pragma('table_info(wallets)');
             const balanceColumn = columns.find(col => col.name === 'balance');
             const initialBalanceColumn = columns.find(col => col.name === 'initialBalance');
@@ -84,13 +84,13 @@ const runMigrations = (db: Database.Database) => {
                  db.exec('ALTER TABLE wallets ADD COLUMN initialBalance REAL NOT NULL DEFAULT 0');
             }
         } catch(e: any) {
-            if (!e.message.includes('duplicate column name')) {
-                 console.error("Migration 3 failed:", e);
+            if (!e.message.includes('duplicate column name') && !e.message.includes('no such column: balance')) {
+                 console.error("Migration 2 failed:", e);
                 throw e;
             }
         } finally {
-            setDbVersion(db, 3);
-            currentVersion = 3;
+            setDbVersion(db, 2);
+            currentVersion = 2;
         }
     }
     
@@ -120,7 +120,7 @@ const runMigrations = (db: Database.Database) => {
 
 export async function getDb() {
   if (!db) {
-    db = new Database(DB_PATH);
+    db = new Database(DB_PATH, { verbose: console.log });
     runMigrations(db);
   }
   return db;
