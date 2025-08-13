@@ -22,9 +22,6 @@ export async function addDebt(userId: string, newDebtData: Omit<Debt, 'id' | 'st
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(newDebt.id, userId, newDebt.type, newDebt.person, newDebt.amount, newDebt.currency, newDebt.dueDate, newDebt.status, newDebt.note, JSON.stringify(newDebt.payments));
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('debtsUpdated'));
-    }
 }
 
 export async function getAllDebts(userId: string): Promise<Debt[]> {
@@ -57,18 +54,12 @@ export async function updateDebt(userId: string, updatedDebt: Debt): Promise<voi
     WHERE id = ? AND userId = ?
   `);
   stmt.run(debtData.type, debtData.person, debtData.amount, debtData.currency, debtData.dueDate, debtData.status, debtData.note, JSON.stringify(debtData.payments), id, userId);
-   if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('debtsUpdated'));
-    }
 }
 
 export async function deleteDebt(userId: string, debtId: string): Promise<void> {
     const db = await getDb();
     const stmt = db.prepare('DELETE FROM debts WHERE id = ? AND userId = ?');
     stmt.run(debtId, userId);
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('debtsUpdated'));
-    }
 }
 
 export async function addPaymentToDebt(userId: string, debtId: string, paymentAmount: number): Promise<Debt | null> {
@@ -129,9 +120,4 @@ export async function convertAllDebts(userId: string, fromCurrency: string, toCu
         for (const debt of debts) updateStmt.run(debt.amount, debt.currency, JSON.stringify(debt.payments), debt.id);
     });
     updateTransaction(convertedDebts);
-
-
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('debtsUpdated'));
-    }
 }

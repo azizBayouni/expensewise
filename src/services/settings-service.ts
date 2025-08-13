@@ -25,9 +25,6 @@ export async function setDefaultCurrency(userId: string, currency: string): Prom
         DO UPDATE SET defaultCurrency = excluded.defaultCurrency;
     `);
     stmt.run(userId, currency);
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('storage'));
-    }
   } catch (error) {
     console.error("Error setting default currency:", error);
   }
