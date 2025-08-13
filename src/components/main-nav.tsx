@@ -46,7 +46,7 @@ export function MainNav() {
     <>
       <SidebarHeader>
         <div className="flex items-center gap-2">
-          <DollarSign className="size-8 text-primary" />
+          <Wallet className="size-8 text-primary" />
           <div className="flex flex-col">
             <h2 className="text-lg font-semibold tracking-tight text-sidebar-foreground">
               ExpenseWise
