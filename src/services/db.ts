@@ -130,7 +130,7 @@ const runMigrations = () => {
     const mainWallet = walletStmt.get('dev-user');
     if (!mainWallet) {
         const insertWallet = db.prepare('INSERT INTO wallets (id, userId, name, currency, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-        insertWallet.run('main-wallet-dev-user', 'dev-user', 'Main Wallet', 'USD', 0, '🏦', '[]', 0);
+        insertWallet.run(randomUUID(), 'dev-user', 'Main Wallet', 'USD', 0, '🏦', '[]', 0);
     }
 };
 

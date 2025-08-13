@@ -6,7 +6,7 @@ import type { Wallet } from '../lib/data';
 import { convertAmount } from './transaction-service';
 import { randomUUID } from 'crypto';
 
-export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId' | 'linkedCategoryIds'>): Promise<void> {
+export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId' | 'linkedCategoryIds' | 'isDeletable'>): Promise<void> {
     const newWallet = { 
         ...newWalletData, 
         id: randomUUID(), 
@@ -21,7 +21,7 @@ export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id'
 
 export async function getAllWallets(userId: string): Promise<Wallet[]> {
     const db = await getDb();
-    const stmt = db.prepare('SELECT * FROM wallets WHERE userId = ?');
+    const stmt = db.prepare('SELECT * FROM wallets WHERE userId = ? ORDER BY isDeletable DESC, name ASC');
     const results = stmt.all(userId) as any[];
     return results.map(row => ({
         ...row,

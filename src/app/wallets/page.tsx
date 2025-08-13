@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { type Wallet, type Transaction } from '@/lib/data';
@@ -182,7 +183,7 @@ export default function WalletsPage() {
           {wallets.map((wallet) => {
             const currentBalance = getWalletBalance(wallet, transactions);
             return (
-              <Card key={wallet.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleWalletClick(wallet.name)}>
+              <Card key={wallet.id} className="cursor-pointer hover:bg-muted/50 transition-colors flex flex-col" onClick={() => handleWalletClick(wallet.name)}>
                  <AlertDialog>
                     <DropdownMenu>
                         <CardHeader className="flex flex-row items-start justify-between space-y-0">
@@ -224,14 +225,16 @@ export default function WalletsPage() {
                                 </DropdownMenuContent>
                             
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="flex-grow">
                              <div className={`text-2xl font-bold ${currentBalance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
                                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(currentBalance)}
                             </div>
+                        </CardContent>
+                        <CardFooter>
                              <p className="text-xs text-muted-foreground">
                                 Initial Balance: {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(wallet.initialBalance)}
                             </p>
-                        </CardContent>
+                        </CardFooter>
                     </DropdownMenu>
                     <AlertDialogContent>
                         <AlertDialogHeader>

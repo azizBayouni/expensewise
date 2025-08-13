@@ -53,23 +53,22 @@ export function AddWalletDialog({
   const [iconSearch, setIconSearch] = useState('');
   const { toast } = useToast();
   
+  const resetForm = useCallback(async () => {
+    if (user) {
+        const defaultCurrency = await getDefaultCurrency(user.uid);
+        setCurrency(defaultCurrency);
+    }
+    setName('');
+    setIcon('🏦');
+    setInitialBalance(0);
+    setIconSearch('');
+  }, [user]);
+
   useEffect(() => {
-    async function fetchDefaultData() {
-        if (user) {
-            const defaultCurrency = await getDefaultCurrency(user.uid);
-            setCurrency(defaultCurrency);
-        }
-    }
-    
     if (isOpen) {
-      // Reset form when dialog opens
-      setName('');
-      setIcon('🏦');
-      setInitialBalance(0);
-      setIconSearch('');
-      fetchDefaultData();
+      resetForm();
     }
-  }, [isOpen, user]);
+  }, [isOpen, resetForm]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
