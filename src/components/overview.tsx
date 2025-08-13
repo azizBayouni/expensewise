@@ -155,6 +155,7 @@ export function Overview({ timespan }: OverviewProps) {
               content={<ChartTooltipContent indicator="dot" formatter={(value, name) => {
                  const formattedValue = new Intl.NumberFormat('en-US', { style: 'currency', currency: defaultCurrency }).format(value as number);
                  const itemConfig = chartConfig[name.toLowerCase() as keyof typeof chartConfig];
+                 if (!itemConfig) return null;
                  return (
                      <div className="flex items-center gap-2">
                          <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: itemConfig.color}}/>
@@ -170,7 +171,8 @@ export function Overview({ timespan }: OverviewProps) {
               return (
                   <div className="flex justify-center gap-4 mt-4">
                       {payload?.map((entry) => {
-                           const itemConfig = chartConfig[entry.value.toLowerCase() as keyof typeof chartConfig];
+                           const itemConfig = chartConfig[entry.value?.toLowerCase() as keyof typeof chartConfig];
+                           if (!itemConfig) return null;
                            return (
                                <div key={entry.value} className="flex items-center gap-2 text-sm">
                                    <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: entry.color}}/>

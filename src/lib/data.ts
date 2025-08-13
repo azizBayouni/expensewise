@@ -164,13 +164,14 @@ export const emojiIcons: EmojiIcon[] = [
   { icon: '🌋', name: 'Volcano' }, { icon: '🐳', name: 'Spouting Whale' }, { icon: '🐺', name: 'Wolf' }, { icon: '🦓', name: 'Zebra' }
 ];
 
-// Helper to calculate wallet balance
-export const getWalletBalance = (wallet: Wallet, allTransactions: Transaction[]) => {
-    // Start with the wallet's initial balance
-    const initialBalance = wallet.balance || 0;
+export function getWalletBalance(wallet: Wallet, allTransactions: Transaction[]) {
+    // Start with the wallet's initial balance from the database
+    let balance = wallet.balance || 0;
 
+    // Filter transactions relevant to this wallet that have occurred *after* the wallet's creation
+    // (assuming wallet creation is the point of initial balance)
     const relevantTransactions = allTransactions.filter(t => t.wallet === wallet.name);
-    
+
     // Calculate the net effect of transactions
     const transactionNet = relevantTransactions.reduce((acc, t) => {
         if (t.type === 'income') {
@@ -179,8 +180,8 @@ export const getWalletBalance = (wallet: Wallet, allTransactions: Transaction[])
         return acc - t.amount;
     }, 0);
 
-    // Return initial balance + transaction effect.
-    return initialBalance + transactionNet;
+    // The live balance is the initial balance plus the net effect of all transactions
+    return balance + transactionNet;
 }
 
 export function getCategoryDepth(categoryId: string | null, allCategories: Category[]): number {

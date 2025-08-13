@@ -80,9 +80,13 @@ export default function WalletsPage() {
     if (user) {
         fetchData();
     }
-    const handleDataChange = () => {
-        if(user) fetchData();
-    }
+  }, [user, fetchData]);
+  
+  const handleDataChange = useCallback(() => {
+      if(user) fetchData();
+  }, [user, fetchData]);
+
+  useEffect(() => {
     window.addEventListener('walletsUpdated', handleDataChange);
     window.addEventListener('transactionsUpdated', handleDataChange);
     window.addEventListener('storage', handleDataChange);
@@ -93,7 +97,7 @@ export default function WalletsPage() {
       window.removeEventListener('storage', handleDataChange);
     }
 
-  }, [user, fetchData]);
+  }, [handleDataChange]);
 
   const handleEditClick = (e: React.MouseEvent, wallet: Wallet) => {
     e.stopPropagation();
@@ -109,13 +113,12 @@ export default function WalletsPage() {
       toast({
           title: "Wallet Deleted",
           description: "The wallet has been successfully deleted.",
-          variant: "destructive"
       });
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
        toast({
           title: "Deletion Failed",
-          description: "Could not delete the wallet.",
+          description: error.message || "Could not delete the wallet.",
           variant: "destructive"
       });
     }
@@ -210,8 +213,11 @@ export default function WalletsPage() {
                         </CardHeader>
                         <CardContent>
                             <div className={`text-2xl font-bold ${wallet.balance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
-                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(wallet.balance)}
+                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(getWalletBalance(wallet, []))}
                             </div>
+                             <p className="text-xs text-muted-foreground">
+                                Current Balance: {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(wallet.balance)}
+                            </p>
                         </CardContent>
                     </DropdownMenu>
                     <AlertDialogContent>
@@ -219,7 +225,7 @@ export default function WalletsPage() {
                         <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                         <AlertDialogDescription>
                             This action cannot be undone. This will permanently delete this
-                            wallet. Associated transactions will NOT be deleted.
+                            wallet. You cannot delete a wallet with transactions.
                         </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

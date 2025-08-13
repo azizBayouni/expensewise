@@ -226,14 +226,14 @@ export function EditTransactionDialog({
   };
   
   const handleAmountBlur = () => {
-    if (originalAmount) {
+    if (originalAmount && transactionCurrency && defaultCurrency) {
        convertAmount(Number(originalAmount), transactionCurrency, defaultCurrency);
     }
   };
 
   const handleCurrencyChange = (newCurrency: string) => {
     setTransactionCurrency(newCurrency);
-    if (originalAmount) {
+    if (originalAmount && defaultCurrency) {
       convertAmount(Number(originalAmount), newCurrency, defaultCurrency);
     }
   };

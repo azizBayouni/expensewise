@@ -100,8 +100,7 @@ export default function Dashboard() {
     const thisMonthTransactions = reportableTransactions.filter(t => isThisMonth(parseISO(t.date)));
 
     const totalBalance = wallets.reduce((sum, wallet) => {
-        const walletTransactions = transactions.filter(t => t.wallet === wallet.name);
-        return sum + getWalletBalance(wallet, walletTransactions);
+        return sum + getWalletBalance(wallet, transactions);
     }, 0);
 
     const monthlyIncome = thisMonthTransactions

@@ -29,7 +29,7 @@ export async function getAllWallets(userId: string): Promise<Wallet[]> {
 }
 
 export async function updateWallet(userId: string, updatedWallet: Wallet): Promise<void> {
-  const { id, ...walletData } = updatedWallet;
+  const { id, balance, ...walletData } = updatedWallet;
   const db = await getDb();
   const stmt = db.prepare('UPDATE wallets SET name = ?, currency = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?');
   stmt.run(walletData.name, walletData.currency, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
@@ -37,6 +37,16 @@ export async function updateWallet(userId: string, updatedWallet: Wallet): Promi
 
 export async function deleteWallet(userId: string, walletId: string): Promise<void> {
     const db = await getDb();
+    
+    // Check if there are transactions associated with this wallet
+    const checkStmt = db.prepare('SELECT 1 FROM transactions WHERE wallet = (SELECT name FROM wallets WHERE id = ?) AND userId = ? LIMIT 1');
+    const wallet = await db.prepare('SELECT name from wallets WHERE id = ?').get(walletId) as Wallet;
+    const hasTransactions = checkStmt.get(wallet.name, userId);
+
+    if (hasTransactions) {
+        throw new Error("Cannot delete a wallet that has associated transactions.");
+    }
+
     const stmt = db.prepare('DELETE FROM wallets WHERE id = ? AND userId = ?');
     stmt.run(walletId, userId);
     

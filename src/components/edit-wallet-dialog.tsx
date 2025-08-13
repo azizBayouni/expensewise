@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -181,6 +180,9 @@ export function EditWalletDialog({
                     </ScrollArea>
                   </SelectContent>
                 </Select>
+                 <p className="text-xs text-muted-foreground">
+                    Changing the currency will not convert the balance.
+                </p>
             </div>
              <div className="space-y-2">
                 <Label htmlFor="linked-categories">Linked Categories</Label>
