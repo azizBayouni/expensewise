@@ -11,11 +11,12 @@ export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id'
         ...newWalletData, 
         id: randomUUID(), 
         userId, 
-        balance: 0, 
+        balance: 0,
+        linkedCategoryIds: []
     };
     const db = await getDb();
     const stmt = db.prepare('INSERT INTO wallets (id, userId, name, currency, balance, icon, linkedCategoryIds) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.currency, newWallet.balance, newWallet.icon, JSON.stringify(newWalletData.linkedCategoryIds || []));
+    stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.currency, newWallet.balance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds));
 }
 
 export async function getAllWallets(userId: string): Promise<Wallet[]> {
@@ -39,8 +40,14 @@ export async function deleteWallet(userId: string, walletId: string): Promise<vo
     const db = await getDb();
     
     // Check if there are transactions associated with this wallet
-    const checkStmt = db.prepare('SELECT 1 FROM transactions WHERE wallet = (SELECT name FROM wallets WHERE id = ?) AND userId = ? LIMIT 1');
-    const wallet = await db.prepare('SELECT name from wallets WHERE id = ?').get(walletId) as Wallet;
+    const walletStmt = db.prepare('SELECT name from wallets WHERE id = ? AND userId = ?');
+    const wallet = walletStmt.get(walletId, userId) as Wallet | undefined;
+
+    if (!wallet) {
+      throw new Error("Wallet not found.");
+    }
+    
+    const checkStmt = db.prepare('SELECT 1 FROM transactions WHERE wallet = ? AND userId = ? LIMIT 1');
     const hasTransactions = checkStmt.get(wallet.name, userId);
 
     if (hasTransactions) {
