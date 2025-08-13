@@ -66,8 +66,6 @@ export function AddWalletDialog({
         name,
         icon,
         initialBalance: Number(initialBalance) || 0,
-        isDeletable: true,
-        linkedCategoryIds: [],
       });
       toast({
           title: "Wallet Added",

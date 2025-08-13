@@ -5,11 +5,13 @@ import { getDb } from './db';
 import type { Wallet } from '../lib/data';
 import { randomUUID } from 'crypto';
 
-export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId'>): Promise<void> {
+export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId' | 'isDeletable'>): Promise<void> {
     const newWallet: Wallet = { 
         ...newWalletData,
         id: randomUUID(),
         userId,
+        isDeletable: true,
+        linkedCategoryIds: [],
     };
     const db = await getDb();
     const stmt = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?)');
