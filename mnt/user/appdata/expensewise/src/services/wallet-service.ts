@@ -15,7 +15,8 @@ export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id'
         linkedCategoryIds: JSON.stringify(newWalletData.linkedCategoryIds || []) 
     };
     const db = await getDb();
-    await db.run('INSERT INTO wallets (id, userId, name, currency, balance, icon, linkedCategoryIds) VALUES (?, ?, ?, ?, ?, ?, ?)', newWallet.id, newWallet.userId, newWallet.name, newWallet.currency, newWallet.balance, newWallet.icon, newWallet.linkedCategoryIds);
+    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, currency, balance, icon, linkedCategoryIds) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.currency, newWallet.balance, newWallet.icon, newWallet.linkedCategoryIds);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('walletsUpdated'));
     }
@@ -23,7 +24,8 @@ export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id'
 
 export async function getAllWallets(userId: string): Promise<Wallet[]> {
     const db = await getDb();
-    const results = await db.all('SELECT * FROM wallets WHERE userId = ?', userId);
+    const stmt = db.prepare('SELECT * FROM wallets WHERE userId = ?');
+    const results = stmt.all(userId) as any[];
     return results.map(row => ({
         ...row,
         linkedCategoryIds: JSON.parse(row.linkedCategoryIds || '[]')
@@ -33,7 +35,8 @@ export async function getAllWallets(userId: string): Promise<Wallet[]> {
 export async function updateWallet(userId: string, updatedWallet: Wallet): Promise<void> {
   const { id, ...walletData } = updatedWallet;
   const db = await getDb();
-  await db.run('UPDATE wallets SET name = ?, currency = ?, balance = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?', walletData.name, walletData.currency, walletData.balance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
+  const stmt = db.prepare('UPDATE wallets SET name = ?, currency = ?, balance = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?');
+  stmt.run(walletData.name, walletData.currency, walletData.balance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
   if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('walletsUpdated'));
     }
@@ -41,7 +44,8 @@ export async function updateWallet(userId: string, updatedWallet: Wallet): Promi
 
 export async function deleteWallet(userId: string, walletId: string): Promise<void> {
     const db = await getDb();
-    await db.run('DELETE FROM wallets WHERE id = ? AND userId = ?', walletId, userId);
+    const stmt = db.prepare('DELETE FROM wallets WHERE id = ? AND userId = ?');
+    stmt.run(walletId, userId);
     
     const defaultWallet = await getDefaultWallet(userId);
     if (defaultWallet === walletId) {
@@ -54,7 +58,8 @@ export async function deleteWallet(userId: string, walletId: string): Promise<vo
 
 export async function setDefaultWallet(userId: string, walletId: string): Promise<void> {
     const db = await getDb();
-    await db.run('INSERT INTO settings (userId, defaultWalletId) VALUES (?, ?) ON CONFLICT(userId) DO UPDATE SET defaultWalletId = excluded.defaultWalletId', userId, walletId);
+    const stmt = db.prepare('INSERT INTO settings (userId, defaultWalletId) VALUES (?, ?) ON CONFLICT(userId) DO UPDATE SET defaultWalletId = excluded.defaultWalletId');
+    stmt.run(userId, walletId);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('storage'));
     }
@@ -62,35 +67,38 @@ export async function setDefaultWallet(userId: string, walletId: string): Promis
 
 export async function getDefaultWallet(userId: string): Promise<string | null> {
     const db = await getDb();
-    const result = await db.get('SELECT defaultWalletId FROM settings WHERE userId = ?', userId);
+    const stmt = db.prepare('SELECT defaultWalletId FROM settings WHERE userId = ?');
+    const result = stmt.get(userId) as { defaultWalletId: string } | undefined;
     return result?.defaultWalletId || null;
 }
 
 export async function clearDefaultWallet(userId: string): Promise<void> {
     const db = await getDb();
-    await db.run('UPDATE settings SET defaultWalletId = NULL WHERE userId = ?', userId);
+    const stmt = db.prepare('UPDATE settings SET defaultWalletId = NULL WHERE userId = ?');
+    stmt.run(userId);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('storage'));
     }
 }
 
 export async function convertAllWallets(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
-    const allWallets = await getAllWallets(userId);
     const db = await getDb();
+    const allWallets = await getAllWallets(userId);
     
-    await db.run('BEGIN TRANSACTION');
-    try {
-        for (const wallet of allWallets) {
-            if (wallet.currency === fromCurrency) {
-                const convertedBalance = await convertAmount(userId, wallet.balance, fromCurrency, toCurrency);
-                await db.run('UPDATE wallets SET balance = ?, currency = ? WHERE id = ?', convertedBalance, toCurrency, wallet.id);
-            }
-        }
-        await db.run('COMMIT');
-    } catch (e) {
-        await db.run('ROLLBACK');
-        throw e;
-    }
+    const walletsToConvert = allWallets.filter(w => w.currency === fromCurrency);
+
+    const conversionPromises = walletsToConvert.map(async (wallet) => {
+        const convertedBalance = await convertAmount(userId, wallet.balance, fromCurrency, toCurrency);
+        return { ...wallet, balance: convertedBalance, currency: toCurrency };
+    });
+
+    const convertedWallets = await Promise.all(conversionPromises);
+
+    const updateStmt = db.prepare('UPDATE wallets SET balance = ?, currency = ? WHERE id = ?');
+    const updateTransaction = db.transaction((wallets) => {
+        for (const wallet of wallets) updateStmt.run(wallet.balance, wallet.currency, wallet.id);
+    });
+    updateTransaction(convertedWallets);
     
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('walletsUpdated'));
