@@ -56,7 +56,8 @@ const runMigrations = () => {
             currency TEXT NOT NULL,
             initialBalance REAL NOT NULL,
             icon TEXT,
-            linkedCategoryIds TEXT
+            linkedCategoryIds TEXT,
+            isDeletable INTEGER DEFAULT 1
         );
     `);
     
@@ -122,6 +123,14 @@ const runMigrations = () => {
     if (!user) {
         const insertUser = db.prepare('INSERT INTO users (id, name, email) VALUES (?, ?, ?)');
         insertUser.run('dev-user', 'Dev User', 'dev@expensewise.app');
+    }
+    
+    // Ensure a default wallet exists
+    const walletStmt = db.prepare('SELECT id FROM wallets WHERE userId = ? AND isDeletable = 0');
+    const mainWallet = walletStmt.get('dev-user');
+    if (!mainWallet) {
+        const insertWallet = db.prepare('INSERT INTO wallets (id, userId, name, currency, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        insertWallet.run('main-wallet-dev-user', 'dev-user', 'Main Wallet', 'USD', 0, '🏦', '[]', 0);
     }
 };
 

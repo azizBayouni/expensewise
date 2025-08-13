@@ -11,11 +11,12 @@ export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id'
         ...newWalletData, 
         id: randomUUID(), 
         userId, 
-        linkedCategoryIds: []
+        linkedCategoryIds: [],
+        isDeletable: 1, // All user-created wallets are deletable
     };
     const db = await getDb();
-    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, currency, initialBalance, icon, linkedCategoryIds) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.currency, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds));
+    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, currency, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.currency, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable);
 }
 
 export async function getAllWallets(userId: string): Promise<Wallet[]> {
@@ -24,7 +25,8 @@ export async function getAllWallets(userId: string): Promise<Wallet[]> {
     const results = stmt.all(userId) as any[];
     return results.map(row => ({
         ...row,
-        linkedCategoryIds: JSON.parse(row.linkedCategoryIds || '[]')
+        linkedCategoryIds: JSON.parse(row.linkedCategoryIds || '[]'),
+        isDeletable: row.isDeletable !== 0, // Convert 0 to false, 1 to true
     }));
 }
 
@@ -38,11 +40,15 @@ export async function updateWallet(userId: string, updatedWallet: Wallet): Promi
 export async function deleteWallet(userId: string, walletId: string): Promise<void> {
     const db = await getDb();
     
-    const walletStmt = db.prepare('SELECT name from wallets WHERE id = ? AND userId = ?');
-    const wallet = walletStmt.get(walletId, userId) as Wallet | undefined;
+    const walletStmt = db.prepare('SELECT name, isDeletable from wallets WHERE id = ? AND userId = ?');
+    const wallet = walletStmt.get(walletId, userId) as { name: string, isDeletable: number } | undefined;
 
     if (!wallet) {
       throw new Error("Wallet not found.");
+    }
+    
+    if (wallet.isDeletable === 0) {
+      throw new Error("The main wallet cannot be deleted.");
     }
     
     const checkStmt = db.prepare('SELECT 1 FROM transactions WHERE wallet = ? AND userId = ? LIMIT 1');

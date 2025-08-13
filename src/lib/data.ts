@@ -53,6 +53,7 @@ export type Wallet = {
   icon?: string;
   linkedCategoryIds?: string[];
   userId: string;
+  isDeletable: boolean;
 };
 
 export type Payment = {

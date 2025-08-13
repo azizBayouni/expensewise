@@ -102,11 +102,21 @@ export default function WalletsPage() {
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteClick = async (e: React.MouseEvent, walletId: string) => {
+  const handleDeleteClick = async (e: React.MouseEvent, wallet: Wallet) => {
     e.stopPropagation();
     if (!user) return;
+    
+    if (!wallet.isDeletable) {
+        toast({
+            title: "Cannot Delete",
+            description: "The main wallet cannot be deleted.",
+            variant: "destructive"
+        });
+        return;
+    }
+
     try {
-      await deleteWallet(user.uid, walletId);
+      await deleteWallet(user.uid, wallet.id);
       toast({
           title: "Wallet Deleted",
           description: "The wallet has been successfully deleted.",
@@ -200,13 +210,17 @@ export default function WalletsPage() {
                                         <Edit className="mr-2 h-4 w-4" />
                                         Edit
                                     </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                            Delete
-                                        </DropdownMenuItem>
-                                    </AlertDialogTrigger>
+                                    {wallet.isDeletable && (
+                                        <>
+                                            <DropdownMenuSeparator />
+                                            <AlertDialogTrigger asChild>
+                                                <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    Delete
+                                                </DropdownMenuItem>
+                                            </AlertDialogTrigger>
+                                        </>
+                                    )}
                                 </DropdownMenuContent>
                             
                         </CardHeader>
@@ -229,7 +243,7 @@ export default function WalletsPage() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={(e) => handleDeleteClick(e, wallet.id)}>Continue</AlertDialogAction>
+                        <AlertDialogAction onClick={(e) => handleDeleteClick(e, wallet)}>Continue</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
