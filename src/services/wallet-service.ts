@@ -5,15 +5,17 @@ import { getDb } from './db';
 import type { Wallet } from '../lib/data';
 import { randomUUID } from 'crypto';
 
-export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId' | 'linkedCategoryIds' | 'isDeletable'>): Promise<void> {
-    const newWallet: Omit<Wallet, 'id' | 'userId'> = { 
+export async function addWallet(userId: string, newWalletData: { name: string, icon?: string, initialBalance: number }): Promise<void> {
+    const newWallet = { 
         ...newWalletData,
+        id: randomUUID(),
+        userId,
         isDeletable: true,
-        linkedCategoryIds: [],
+        linkedCategoryIds: []
     };
     const db = await getDb();
     const stmt = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    stmt.run(randomUUID(), userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable ? 1 : 0);
+    stmt.run(newWallet.id, userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable ? 1 : 0);
 }
 
 export async function getAllWallets(userId: string): Promise<Wallet[]> {
@@ -82,4 +84,3 @@ export async function clearDefaultWallet(userId: string): Promise<void> {
     const stmt = db.prepare('UPDATE settings SET defaultWalletId = NULL WHERE userId = ?');
     stmt.run(userId);
 }
-
