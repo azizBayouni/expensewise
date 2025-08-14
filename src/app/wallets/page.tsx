@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -122,7 +123,6 @@ export default function WalletsPage() {
           title: "Wallet Deleted",
           description: "The wallet has been successfully deleted.",
       });
-      fetchData();
     } catch (error: any) {
        toast({
           title: "Deletion Failed",

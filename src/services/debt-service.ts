@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from './db';
@@ -100,6 +101,9 @@ export async function addPaymentToDebt(userId: string, debtId: string, paymentAm
     }
 
     await updateDebt(userId, updatedDebt);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('debtsUpdated'));
+    }
     return updatedDebt;
 }
 

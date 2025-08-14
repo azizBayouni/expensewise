@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from './db';
@@ -33,6 +34,7 @@ export async function getAllWallets(userId: string): Promise<Wallet[]> {
     const results = stmt.all(userId) as any[];
     return results.map(row => ({
         ...row,
+        initialBalance: row.initialBalance || 0,
         linkedCategoryIds: JSON.parse(row.linkedCategoryIds || '[]'),
         isDeletable: row.isDeletable !== 0,
     }));
