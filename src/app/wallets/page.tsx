@@ -61,7 +61,7 @@ export default function WalletsPage() {
         const [wals, trans, defWallet] = await Promise.all([
             getAllWallets(user.uid),
             getAllTransactions(user.uid),
-            getDefaultWallet(user.uid),
+            getDefaultWallet(user.uid)
         ]);
         
         setWallets(wals);
