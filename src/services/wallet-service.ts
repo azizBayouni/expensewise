@@ -7,15 +7,10 @@ import { randomUUID } from 'crypto';
 import { convertAmount } from './transaction-service';
 
 export async function addWallet(userId: string, newWalletData: { name: string, icon?: string, initialBalance: number, currency: string }): Promise<void> {
-    const newWallet: Omit<Wallet, 'id'> = { 
-        ...newWalletData,
-        userId,
-        isDeletable: true,
-        linkedCategoryIds: []
-    };
+    const newWalletId = randomUUID();
     const db = await getDb();
-    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, icon, linkedCategoryIds, initialBalance, isDeletable, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-    stmt.run(randomUUID(), newWallet.userId, newWallet.name, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.initialBalance, newWallet.isDeletable ? 1 : 0, newWallet.currency);
+    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    stmt.run(newWalletId, userId, newWalletData.name, newWalletData.initialBalance, newWalletData.icon, JSON.stringify([]), 1, newWalletData.currency);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('walletsUpdated'));
     }
@@ -37,7 +32,7 @@ export async function updateWallet(userId: string, updatedWallet: Wallet): Promi
   const db = await getDb();
   const stmt = db.prepare('UPDATE wallets SET name = ?, initialBalance = ?, icon = ?, linkedCategoryIds = ?, currency = ? WHERE id = ? AND userId = ?');
   stmt.run(walletData.name, walletData.initialBalance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), walletData.currency, id, userId);
-  if (typeof window !== 'undefined') {
+   if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('walletsUpdated'));
     }
 }

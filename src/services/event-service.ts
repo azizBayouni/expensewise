@@ -16,6 +16,9 @@ export async function addEvent(userId: string, newEventData: Omit<Event, 'id' | 
     const db = await getDb();
     const stmt = db.prepare('INSERT INTO events (id, userId, name, icon, status) VALUES (?, ?, ?, ?, ?)');
     stmt.run(newEvent.id, newEvent.userId, newEvent.name, newEvent.icon, newEvent.status);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('eventsUpdated'));
+    }
 }
 
 export async function getAllEvents(userId: string): Promise<Event[]> {
@@ -29,10 +32,16 @@ export async function updateEvent(userId: string, updatedEvent: Event): Promise<
   const db = await getDb();
   const stmt = db.prepare('UPDATE events SET name = ?, icon = ?, status = ? WHERE id = ? AND userId = ?');
   stmt.run(eventData.name, eventData.icon, eventData.status, id, userId);
+  if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('eventsUpdated'));
+    }
 }
 
 export async function deleteEvent(userId: string, eventId: string): Promise<void> {
     const db = await getDb();
     const stmt = db.prepare('DELETE FROM events WHERE id = ? AND userId = ?');
     stmt.run(eventId, userId);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('eventsUpdated'));
+    }
 }
