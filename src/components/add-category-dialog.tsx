@@ -91,11 +91,7 @@ export function AddCategoryDialog({
   };
   
   const parentCategoryOptions = useMemo(() => {
-    const categoriesWithDepth = allCategories.map(c => ({
-        ...c,
-        depth: getCategoryDepth(c.id, allCategories)
-    }));
-    return categoriesWithDepth.filter(c => c.depth < 2);
+    return allCategories.filter(c => getCategoryDepth(c.id, allCategories) < 2);
   }, [allCategories]);
 
   const renderParentCategoryOptions = () => {

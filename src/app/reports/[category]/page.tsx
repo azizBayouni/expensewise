@@ -99,16 +99,16 @@ export default function CategoryReportDetails() {
     return { from: null, to: null };
   }, [searchParams]);
 
-  const { filteredTransactions, categoryHierarchy } = useMemo(() => {
+  const { filteredTransactions, categoryHierarchy, topLevelCategory } = useMemo(() => {
     const decodedCategoryName = decodeURIComponent(categoryName as string);
-    const topLevelCategory = categories.find(
-      (c) => c.name === decodedCategoryName
+    const topCat = categories.find(
+      (c) => c.name === decodedCategoryName && !c.parentId
     );
 
-    if (!topLevelCategory)
-      return { filteredTransactions: [], categoryHierarchy: [] };
+    if (!topCat)
+      return { filteredTransactions: [], categoryHierarchy: [], topLevelCategory: null };
 
-    const hierarchy = [topLevelCategory.id];
+    const hierarchy = [topCat.id];
     const getChildren = (parentId: string) => {
       categories
         .filter((c) => c.parentId === parentId)
@@ -117,7 +117,7 @@ export default function CategoryReportDetails() {
           getChildren(child.id);
         });
     };
-    getChildren(topLevelCategory.id);
+    getChildren(topCat.id);
     
     const hierarchyNames = categories.filter(c => hierarchy.includes(c.id)).map(c => c.name);
 
@@ -137,7 +137,7 @@ export default function CategoryReportDetails() {
       return hierarchyNames.includes(t.category);
     });
 
-    return { filteredTransactions: filtered, categoryHierarchy: hierarchy };
+    return { filteredTransactions: filtered, categoryHierarchy: hierarchy, topLevelCategory: topCat };
   }, [categoryName, dateRange, transactions, categories]);
 
   const totalExpense = useMemo(() => {
@@ -152,7 +152,8 @@ export default function CategoryReportDetails() {
 
   const expensesBySubCategory = useMemo(() => {
     const breakdown: Record<string, { value: number; icon?: string }> = {};
-     const directSubCategories = categories.filter(c => categoryHierarchy.includes(c.id) && c.id !== categoryHierarchy[0] && getCategoryDepth(c.id, categories) === 1);
+
+    const directSubCategories = categories.filter(c => c.parentId === topLevelCategory?.id);
 
      directSubCategories.forEach(cat => {
         breakdown[cat.name] = { value: 0, icon: cat.icon };
@@ -163,14 +164,25 @@ export default function CategoryReportDetails() {
       if (!transactionCategory) return;
       
       let parentCategory = transactionCategory;
-      while(parentCategory.parentId && getCategoryDepth(parentCategory.id, categories) > 1) {
-          const parent = categories.find(c => c.id === parentCategory.parentId);
-          if (!parent) break;
-          parentCategory = parent;
+      let directChildOfTop = null;
+
+      if(parentCategory.parentId === topLevelCategory?.id) {
+          directChildOfTop = parentCategory;
+      } else {
+          while(parentCategory.parentId && parentCategory.parentId !== topLevelCategory?.id) {
+              const parent = categories.find(c => c.id === parentCategory.parentId);
+              if (!parent) break;
+              parentCategory = parent;
+          }
+          if(parentCategory.parentId === topLevelCategory?.id){
+              directChildOfTop = parentCategory;
+          }
       }
-      
-      if (breakdown[parentCategory.name] !== undefined) {
-         breakdown[parentCategory.name].value += t.amount;
+
+      if (directChildOfTop && breakdown[directChildOfTop.name] !== undefined) {
+         breakdown[directChildOfTop.name].value += t.amount;
+      } else if (!topLevelCategory?.parentId && t.category === topLevelCategory?.name){
+          // This handles expenses logged directly to the top-level category
       }
     });
 
@@ -178,21 +190,27 @@ export default function CategoryReportDetails() {
       .map(([name, data]) => ({ name, ...data }))
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [filteredTransactions, categoryHierarchy, categories]);
+  }, [filteredTransactions, categories, topLevelCategory]);
   
   const displayedTransactions = useMemo(() => {
     if (!selectedSubCategory) {
       return filteredTransactions;
     }
-    return filteredTransactions.filter(t => {
-      let current = categories.find(c => c.name === t.category);
-      while(current) {
-        if (current.name === selectedSubCategory) return true;
-        if (!current.parentId) return false;
-        current = categories.find(c => c.id === current?.parentId);
-      }
-      return false;
-    });
+    // Get all descendants of the selected sub-category
+    const subCategory = categories.find(c => c.name === selectedSubCategory);
+    if (!subCategory) return [];
+
+    const subHierarchyIds = [subCategory.id];
+    const getChildren = (parentId: string) => {
+      categories.filter(c => c.parentId === parentId).forEach(child => {
+        subHierarchyIds.push(child.id);
+        getChildren(child.id);
+      })
+    }
+    getChildren(subCategory.id);
+    const subHierarchyNames = categories.filter(c => subHierarchyIds.includes(c.id)).map(c => c.name);
+
+    return filteredTransactions.filter(t => subHierarchyNames.includes(t.category));
   }, [filteredTransactions, selectedSubCategory, categories]);
   
   const formatCurrency = (value: number) => {
@@ -270,7 +288,7 @@ export default function CategoryReportDetails() {
             <Card>
               <CardContent className="pt-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                  <CategoryDonutChart data={expensesBySubCategory} currency={defaultCurrency} />
+                  <CategoryDonutChart data={expensesBySubCategory} currency={defaultCurrency}/>
                   <CategoryExpenseList data={expensesBySubCategory} currency={defaultCurrency} onCategoryClick={handleSubCategoryClick}/>
                 </div>
               </CardContent>
@@ -280,9 +298,10 @@ export default function CategoryReportDetails() {
             <Card>
               <CardContent className="pt-6">
                 {selectedSubCategory && (
-                  <div className="mb-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="font-semibold">{selectedSubCategory} Transactions</h3>
                     <Button variant="secondary" onClick={() => setSelectedSubCategory(null)}>
-                      Back to All Transactions
+                      Back to All
                     </Button>
                   </div>
                 )}
