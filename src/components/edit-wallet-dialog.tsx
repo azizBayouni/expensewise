@@ -18,7 +18,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { emojiIcons, type Wallet, type Category } from '@/lib/data';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { emojiIcons, type Wallet, currencies, type Category } from '@/lib/data';
 import { updateWallet } from '@/services/wallet-service';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +52,7 @@ export function EditWalletDialog({
   const [name, setName] = useState('');
   const [icon, setIcon] = useState<string | undefined>(undefined);
   const [initialBalance, setInitialBalance] = useState<number | ''>('');
+  const [currency, setCurrency] = useState('');
   const [linkedCategoryIds, setLinkedCategoryIds] = useState<string[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState('');
@@ -64,6 +72,7 @@ export function EditWalletDialog({
           setName(wallet.name);
           setIcon(wallet.icon);
           setInitialBalance(wallet.initialBalance);
+          setCurrency(wallet.currency);
           setLinkedCategoryIds(wallet.linkedCategoryIds || []);
         }
         setIconSearch('');
@@ -78,6 +87,7 @@ export function EditWalletDialog({
         name,
         icon,
         initialBalance: Number(initialBalance) || 0,
+        currency,
         linkedCategoryIds,
       };
       await updateWallet(user.uid, updatedWallet);
@@ -161,15 +171,33 @@ export function EditWalletDialog({
                 <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
               </div>
             </div>
-             <div className="space-y-2">
+            <div className="space-y-2">
                 <Label htmlFor="initial-balance">Initial Balance</Label>
-                <Input 
-                    id="initial-balance" 
-                    type="number"
-                    value={initialBalance}
-                    onChange={(e) => setInitialBalance(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                    placeholder="0.00"
-                />
+                 <div className="flex items-center gap-2">
+                    <Input 
+                        id="initial-balance" 
+                        type="number"
+                        value={initialBalance}
+                        onChange={(e) => setInitialBalance(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        placeholder="0.00"
+                        className="flex-1"
+                    />
+                    <Select value={currency} onValueChange={setCurrency}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currencies.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                 </div>
+                 <p className="text-xs text-muted-foreground">
+                    Changing the currency will not convert the balance. Use the Settings page for conversion.
+                </p>
             </div>
              <div className="space-y-2">
                 <Label htmlFor="linked-categories">Linked Categories</Label>

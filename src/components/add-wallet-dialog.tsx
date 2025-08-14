@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -19,10 +18,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { emojiIcons } from '@/lib/data';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { emojiIcons, currencies } from '@/lib/data';
 import { addWallet } from '@/services/wallet-service';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
+import { getDefaultCurrency } from '@/services/settings-service';
 import { ScrollArea } from './ui/scroll-area';
 import { useAuth } from './auth-provider';
 
@@ -41,16 +48,20 @@ export function AddWalletDialog({
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('🏦');
   const [initialBalance, setInitialBalance] = useState<number | ''>('');
+  const [currency, setCurrency] = useState('');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState('');
   const { toast } = useToast();
   
   const resetForm = useCallback(async () => {
+    if (!user) return;
+    const defaultCurrency = await getDefaultCurrency(user.uid);
     setName('');
     setIcon('🏦');
     setInitialBalance(0);
+    setCurrency(defaultCurrency);
     setIconSearch('');
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (isOpen) {
@@ -67,6 +78,7 @@ export function AddWalletDialog({
         name,
         icon,
         initialBalance: Number(initialBalance) || 0,
+        currency
       });
       toast({
           title: "Wallet Added",
@@ -146,13 +158,28 @@ export function AddWalletDialog({
             </div>
              <div className="space-y-2">
                 <Label htmlFor="initial-balance">Initial Balance</Label>
-                <Input 
-                    id="initial-balance" 
-                    type="number"
-                    value={initialBalance}
-                    onChange={(e) => setInitialBalance(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                    placeholder="0.00"
-                />
+                 <div className="flex items-center gap-2">
+                    <Input 
+                        id="initial-balance" 
+                        type="number"
+                        value={initialBalance}
+                        onChange={(e) => setInitialBalance(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        placeholder="0.00"
+                        className="flex-1"
+                    />
+                    <Select value={currency} onValueChange={setCurrency}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currencies.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                 </div>
             </div>
           </div>
           <DialogFooter>

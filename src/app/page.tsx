@@ -61,7 +61,11 @@ export default function Dashboard() {
             getDefaultCurrency(user.uid),
         ]);
         setTransactions(trans);
-        setWallets(wals);
+        
+        // This is a temporary fix for wallets that might not have a currency
+        const walletsWithCurrency = wals.map(w => ({...w, currency: w.currency || currency }));
+        setWallets(walletsWithCurrency);
+        
         setDebts(dts);
         setDefaultCurrency(currency);
     } catch (error) {

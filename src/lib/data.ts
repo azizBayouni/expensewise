@@ -49,6 +49,7 @@ export type Wallet = {
   id: string;
   name: string;
   initialBalance: number;
+  currency: string;
   icon?: string;
   linkedCategoryIds: string[];
   userId: string;

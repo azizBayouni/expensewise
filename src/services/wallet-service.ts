@@ -4,8 +4,9 @@
 import { getDb } from './db';
 import type { Wallet } from '../lib/data';
 import { randomUUID } from 'crypto';
+import { convertAmount } from './transaction-service';
 
-export async function addWallet(userId: string, newWalletData: { name: string, icon?: string, initialBalance: number }): Promise<void> {
+export async function addWallet(userId: string, newWalletData: { name: string, icon?: string, initialBalance: number, currency: string }): Promise<void> {
     const newWallet = { 
         ...newWalletData,
         id: randomUUID(),
@@ -14,13 +15,13 @@ export async function addWallet(userId: string, newWalletData: { name: string, i
         linkedCategoryIds: []
     };
     const db = await getDb();
-    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    stmt.run(newWallet.id, userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable ? 1 : 0);
+    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    stmt.run(newWallet.id, userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable ? 1 : 0, newWallet.currency);
 }
 
 export async function getAllWallets(userId: string): Promise<Wallet[]> {
     const db = await getDb();
-    const stmt = db.prepare('SELECT id, name, initialBalance, icon, linkedCategoryIds, isDeletable, userId FROM wallets WHERE userId = ? ORDER BY isDeletable DESC, name ASC');
+    const stmt = db.prepare('SELECT id, name, initialBalance, icon, linkedCategoryIds, isDeletable, userId, currency FROM wallets WHERE userId = ? ORDER BY isDeletable DESC, name ASC');
     const results = stmt.all(userId) as any[];
     return results.map(row => ({
         ...row,
@@ -32,8 +33,8 @@ export async function getAllWallets(userId: string): Promise<Wallet[]> {
 export async function updateWallet(userId: string, updatedWallet: Wallet): Promise<void> {
   const { id, ...walletData } = updatedWallet;
   const db = await getDb();
-  const stmt = db.prepare('UPDATE wallets SET name = ?, initialBalance = ?, icon = ?, linkedCategoryIds = ? WHERE id = ? AND userId = ?');
-  stmt.run(walletData.name, walletData.initialBalance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), id, userId);
+  const stmt = db.prepare('UPDATE wallets SET name = ?, initialBalance = ?, icon = ?, linkedCategoryIds = ?, currency = ? WHERE id = ? AND userId = ?');
+  stmt.run(walletData.name, walletData.initialBalance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), walletData.currency, id, userId);
 }
 
 export async function deleteWallet(userId: string, walletId: string): Promise<void> {
@@ -83,4 +84,24 @@ export async function clearDefaultWallet(userId: string): Promise<void> {
     const db = await getDb();
     const stmt = db.prepare('UPDATE settings SET defaultWalletId = NULL WHERE userId = ?');
     stmt.run(userId);
+}
+
+export async function convertAllWallets(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
+    const db = await getDb();
+    const allWallets = await getAllWallets(userId);
+    
+    const walletsToConvert = allWallets.filter(w => w.currency === fromCurrency);
+
+    const conversionPromises = walletsToConvert.map(async (wallet) => {
+        const convertedBalance = await convertAmount(userId, wallet.initialBalance, fromCurrency, toCurrency);
+        return { ...wallet, initialBalance: convertedBalance, currency: toCurrency };
+    });
+
+    const convertedWallets = await Promise.all(conversionPromises);
+
+    const updateStmt = db.prepare('UPDATE wallets SET initialBalance = ?, currency = ? WHERE id = ?');
+    const updateTransaction = db.transaction((wallets) => {
+        for (const wallet of wallets) updateStmt.run(wallet.initialBalance, wallet.currency, wallet.id);
+    });
+    updateTransaction(convertedWallets);
 }

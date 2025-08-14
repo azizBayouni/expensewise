@@ -25,7 +25,7 @@ const runMigrations = (db: Database.Database) => {
     // Create all tables with their correct, final schema
     db.exec(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT, email TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL, parentId TEXT, icon TEXT);`);
-    db.exec(`CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, icon TEXT, linkedCategoryIds TEXT, initialBalance REAL NOT NULL DEFAULT 0, isDeletable INTEGER NOT NULL DEFAULT 1);`);
+    db.exec(`CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, icon TEXT, linkedCategoryIds TEXT, initialBalance REAL NOT NULL DEFAULT 0, isDeletable INTEGER NOT NULL DEFAULT 1, currency TEXT NOT NULL DEFAULT 'USD');`);
     db.exec(`CREATE TABLE IF NOT EXISTS transactions (id TEXT PRIMARY KEY, userId TEXT NOT NULL, date TEXT NOT NULL, amount REAL NOT NULL, type TEXT NOT NULL, category TEXT NOT NULL, wallet TEXT NOT NULL, description TEXT, currency TEXT NOT NULL, attachments TEXT, eventId TEXT, excludeFromReport INTEGER);`);
     db.exec(`CREATE TABLE IF NOT EXISTS debts (id TEXT PRIMARY KEY, userId TEXT NOT NULL, type TEXT NOT NULL, person TEXT NOT NULL, amount REAL NOT NULL, currency TEXT NOT NULL, dueDate TEXT NOT NULL, status TEXT NOT NULL, note TEXT, payments TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, icon TEXT NOT NULL, status TEXT NOT NULL);`);
@@ -48,6 +48,12 @@ const runMigrations = (db: Database.Database) => {
         if (hasBalance && !hasInitialBalance) {
             db.exec('ALTER TABLE wallets RENAME COLUMN balance TO initialBalance');
         }
+        
+        // Migration: Add currency column if it doesn't exist
+        const hasCurrency = walletColumns.some(col => col.name === 'currency');
+        if (!hasCurrency) {
+            db.exec(`ALTER TABLE wallets ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'`);
+        }
 
     } catch(e) { 
         console.error("A migration failed, which can be normal on first run. Carrying on.", e);
@@ -67,8 +73,8 @@ const runMigrations = (db: Database.Database) => {
     const mainWalletStmt = db.prepare('SELECT id from wallets WHERE userId = ? AND name = ?');
     let mainWallet = mainWalletStmt.get('dev-user', 'Main Wallet');
     if (!mainWallet) {
-        const insertWallet = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable) VALUES (?, ?, ?, ?, ?, ?, ?)');
-        insertWallet.run(randomUUID(), 'dev-user', 'Main Wallet', 0, '🏦', '[]', 0);
+        const insertWallet = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        insertWallet.run(randomUUID(), 'dev-user', 'Main Wallet', 0, '🏦', '[]', 0, 'USD');
     } else {
         // Ensure the existing main wallet is not deletable
         const updateStmt = db.prepare('UPDATE wallets SET isDeletable = 0 WHERE id = ?');
