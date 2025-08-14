@@ -42,7 +42,7 @@ export default function Dashboard() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [defaultCurrency, setDefaultCurrency] = useState('SAR');
+  const [defaultCurrency, setDefaultCurrency] = useState('USD');
   const [overviewTimespan, setOverviewTimespan] = useState<'6m' | '12m' | 'ytd'>('6m');
   const [isLoading, setIsLoading] = useState(true);
   
@@ -54,14 +54,18 @@ export default function Dashboard() {
     if (!user) return;
     setIsLoading(true);
     try {
-        const [trans, wals, dts] = await Promise.all([
+        const [trans, wals, dts, currency] = await Promise.all([
             getAllTransactions(user.uid),
             getAllWallets(user.uid),
             getAllDebts(user.uid),
+            getDefaultCurrency(user.uid),
         ]);
-        const currency = await getDefaultCurrency(user.uid);
         setTransactions(trans);
-        setWallets(wals);
+        
+        // This is a temporary fix for wallets that might not have a currency
+        const walletsWithCurrency = wals.map(w => ({...w, currency: w.currency || currency }));
+        setWallets(walletsWithCurrency);
+        
         setDebts(dts);
         setDefaultCurrency(currency);
     } catch (error) {
@@ -100,8 +104,7 @@ export default function Dashboard() {
     const thisMonthTransactions = reportableTransactions.filter(t => isThisMonth(parseISO(t.date)));
 
     const totalBalance = wallets.reduce((sum, wallet) => {
-        const walletTransactions = transactions.filter(t => t.wallet === wallet.name);
-        return sum + getWalletBalance(wallet, walletTransactions);
+        return sum + getWalletBalance(wallet, transactions);
     }, 0);
 
     const monthlyIncome = thisMonthTransactions
@@ -331,5 +334,3 @@ export default function Dashboard() {
     </>
   );
 }
-
-    

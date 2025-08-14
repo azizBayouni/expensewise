@@ -13,7 +13,6 @@ import {
   Landmark,
   PiggyBank,
 } from 'lucide-react';
-import type { Transaction as FirestoreTransaction } from '@/services/transaction-service';
 
 export type User = {
   name: string;
@@ -49,11 +48,12 @@ export type Transaction = {
 export type Wallet = {
   id: string;
   name: string;
+  initialBalance: number;
   currency: string;
-  balance: number;
   icon?: string;
-  linkedCategoryIds?: string[];
+  linkedCategoryIds: string[];
   userId: string;
+  isDeletable: boolean;
 };
 
 export type Payment = {
@@ -165,13 +165,13 @@ export const emojiIcons: EmojiIcon[] = [
   { icon: '🌋', name: 'Volcano' }, { icon: '🐳', name: 'Spouting Whale' }, { icon: '🐺', name: 'Wolf' }, { icon: '🦓', name: 'Zebra' }
 ];
 
-// Helper to calculate wallet balance
-export const getWalletBalance = (wallet: Wallet, allTransactions: Transaction[]) => {
-    // Start with the wallet's initial balance
-    const initialBalance = wallet.balance || 0;
+export function getWalletBalance(wallet: Wallet, allTransactions: Transaction[]) {
+    // Start with the wallet's initial balance from the database
+    let balance = wallet.initialBalance || 0;
 
+    // Filter transactions relevant to this wallet
     const relevantTransactions = allTransactions.filter(t => t.wallet === wallet.name);
-    
+
     // Calculate the net effect of transactions
     const transactionNet = relevantTransactions.reduce((acc, t) => {
         if (t.type === 'income') {
@@ -180,6 +180,18 @@ export const getWalletBalance = (wallet: Wallet, allTransactions: Transaction[])
         return acc - t.amount;
     }, 0);
 
-    // Return initial balance + transaction effect.
-    return initialBalance + transactionNet;
+    // The live balance is the initial balance plus the net effect of all transactions
+    return balance + transactionNet;
+}
+
+export function getCategoryDepth(categoryId: string | null, allCategories: Category[]): number {
+    if (!categoryId) return 0;
+    let depth = 0;
+    let current = allCategories.find(c => c.id === categoryId);
+    while (current?.parentId) {
+        depth++;
+        current = allCategories.find(c => c.id === current!.parentId);
+        if (depth > 10) break; // Safety break for circular dependencies
+    }
+    return depth;
 }

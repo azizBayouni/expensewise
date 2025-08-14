@@ -47,43 +47,52 @@ export function AddWalletDialog({
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('🏦');
+  const [initialBalance, setInitialBalance] = useState<number | ''>('');
   const [currency, setCurrency] = useState('');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState('');
   const { toast } = useToast();
   
+  const resetForm = useCallback(async () => {
+    if (!user) return;
+    const defaultCurrency = await getDefaultCurrency(user.uid);
+    setName('');
+    setIcon('🏦');
+    setInitialBalance(0);
+    setCurrency(defaultCurrency);
+    setIconSearch('');
+  }, [user]);
+
   useEffect(() => {
-    async function fetchDefaultData() {
-        if (user) {
-            const defaultCurrency = await getDefaultCurrency(user.uid);
-            setCurrency(defaultCurrency);
-        }
-    }
-    
     if (isOpen) {
-      // Reset form when dialog opens
-      setName('');
-      setIcon('🏦');
-      setIconSearch('');
-      fetchDefaultData();
+      resetForm();
     }
-  }, [isOpen, user]);
+  }, [isOpen, resetForm]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !name) return;
     
-    await addWallet(user.uid, {
-      name,
-      icon,
-      currency,
-    });
-    toast({
-        title: "Wallet Added",
-        description: `The wallet "${name}" has been created.`,
-    });
-    onWalletAdded();
-    onOpenChange(false);
+    try {
+      await addWallet(user.uid, {
+        name,
+        icon,
+        initialBalance: Number(initialBalance) || 0,
+        currency
+      });
+      toast({
+          title: "Wallet Added",
+          description: `The wallet "${name}" has been created.`,
+      });
+      onWalletAdded();
+      onOpenChange(false);
+    } catch (error) {
+       toast({
+          title: "Error adding wallet",
+          description: "An unexpected error occurred.",
+          variant: "destructive"
+      });
+    }
   };
 
   const filteredIcons = useMemo(() => {
@@ -148,18 +157,30 @@ export function AddWalletDialog({
               </div>
             </div>
              <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
-                <Select value={currency} onValueChange={setCurrency}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <ScrollArea className="h-48">
-                        {currencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </ScrollArea>
-                  </SelectContent>
-                </Select>
-              </div>
+                <Label htmlFor="initial-balance">Initial Balance</Label>
+                 <div className="flex items-center gap-2">
+                    <Input 
+                        id="initial-balance" 
+                        type="number"
+                        value={initialBalance}
+                        onChange={(e) => setInitialBalance(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        placeholder="0.00"
+                        className="flex-1"
+                    />
+                    <Select value={currency} onValueChange={setCurrency}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currencies.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                 </div>
+            </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>

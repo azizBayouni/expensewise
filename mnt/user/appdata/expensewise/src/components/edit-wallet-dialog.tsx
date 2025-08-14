@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -30,7 +29,7 @@ import { emojiIcons, type Wallet, currencies, type Category, getCategoryDepth } 
 import { updateWallet } from '@/services/wallet-service';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { MultiSelect, type MultiSelectOption } from './ui/multi-select';
+import { MultiSelect } from './ui/multi-select';
 import { ScrollArea } from './ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { getAllCategories } from '@/services/category-service';
@@ -52,6 +51,7 @@ export function EditWalletDialog({
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState<string | undefined>(undefined);
+  const [initialBalance, setInitialBalance] = useState<number | ''>('');
   const [currency, setCurrency] = useState('');
   const [linkedCategoryIds, setLinkedCategoryIds] = useState<string[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -71,6 +71,7 @@ export function EditWalletDialog({
         if (wallet) {
           setName(wallet.name);
           setIcon(wallet.icon);
+          setInitialBalance(wallet.initialBalance);
           setCurrency(wallet.currency);
           setLinkedCategoryIds(wallet.linkedCategoryIds || []);
         }
@@ -85,6 +86,7 @@ export function EditWalletDialog({
         ...wallet,
         name,
         icon,
+        initialBalance: Number(initialBalance) || 0,
         currency,
         linkedCategoryIds,
       };
@@ -170,19 +172,31 @@ export function EditWalletDialog({
               </div>
             </div>
             <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
-                <Select value={currency} onValueChange={setCurrency}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                     <ScrollArea className="h-48">
-                        {currencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </ScrollArea>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="initial-balance">Initial Balance</Label>
+                 <div className="flex items-center gap-2">
+                    <Input 
+                        id="initial-balance" 
+                        type="number"
+                        value={initialBalance}
+                        onChange={(e) => setInitialBalance(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        placeholder="0.00"
+                        className="flex-1"
+                    />
+                    <Select value={currency} onValueChange={setCurrency}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currencies.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                 </div>
                  <p className="text-xs text-muted-foreground">
-                    Changing the currency will not convert the balance.
+                    Changing the currency will not convert the balance. Use the Settings page for conversion.
                 </p>
             </div>
              <div className="space-y-2">

@@ -8,9 +8,10 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { type Wallet } from '@/lib/data';
+import { type Wallet, type Transaction } from '@/lib/data';
 import { PlusCircle, MoreVertical, Edit, Trash2, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -48,6 +49,7 @@ export default function WalletsPage() {
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
   const [defaultWalletId, setDefaultWalletId] = useState<string | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
@@ -62,12 +64,8 @@ export default function WalletsPage() {
             getDefaultWallet(user.uid)
         ]);
         
-        const walletsWithBalance = wals.map(w => ({
-            ...w,
-            balance: getWalletBalance(w, trans)
-        }));
-        
-        setWallets(walletsWithBalance);
+        setWallets(wals);
+        setTransactions(trans);
         setDefaultWalletId(defWallet);
     } catch (error) {
         console.error("Error fetching wallets page data:", error);
@@ -80,9 +78,13 @@ export default function WalletsPage() {
     if (user) {
         fetchData();
     }
-    const handleDataChange = () => {
-        if(user) fetchData();
-    }
+  }, [user, fetchData]);
+  
+  const handleDataChange = useCallback(() => {
+      if(user) fetchData();
+  }, [user, fetchData]);
+
+  useEffect(() => {
     window.addEventListener('walletsUpdated', handleDataChange);
     window.addEventListener('transactionsUpdated', handleDataChange);
     window.addEventListener('storage', handleDataChange);
@@ -93,7 +95,7 @@ export default function WalletsPage() {
       window.removeEventListener('storage', handleDataChange);
     }
 
-  }, [user, fetchData]);
+  }, [handleDataChange]);
 
   const handleEditClick = (e: React.MouseEvent, wallet: Wallet) => {
     e.stopPropagation();
@@ -101,21 +103,39 @@ export default function WalletsPage() {
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteClick = (e: React.MouseEvent, walletId: string) => {
+  const handleDeleteClick = async (e: React.MouseEvent, wallet: Wallet) => {
     e.stopPropagation();
     if (!user) return;
-    deleteWallet(user.uid, walletId);
-    toast({
-        title: "Wallet Deleted",
-        description: "The wallet has been successfully deleted.",
-        variant: "destructive"
-    })
+    
+    if (!wallet.isDeletable) {
+        toast({
+            title: "Cannot Delete",
+            description: "The main wallet cannot be deleted.",
+            variant: "destructive"
+        });
+        return;
+    }
+
+    try {
+      await deleteWallet(user.uid, wallet.id);
+      toast({
+          title: "Wallet Deleted",
+          description: "The wallet has been successfully deleted.",
+      });
+      fetchData();
+    } catch (error: any) {
+       toast({
+          title: "Deletion Failed",
+          description: error.message || "Could not delete the wallet.",
+          variant: "destructive"
+      });
+    }
   };
 
-  const handleSetDefault = (e: React.MouseEvent, walletId: string) => {
+  const handleSetDefault = async (e: React.MouseEvent, walletId: string) => {
     e.stopPropagation();
     if (!user) return;
-    setDefaultWallet(user.uid, walletId);
+    await setDefaultWallet(user.uid, walletId);
     setDefaultWalletId(walletId);
     toast({
       title: "Default Wallet Set",
@@ -160,8 +180,10 @@ export default function WalletsPage() {
           </div>
         </div>
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {wallets.map((wallet) => (
-              <Card key={wallet.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleWalletClick(wallet.name)}>
+          {wallets.map((wallet) => {
+            const currentBalance = getWalletBalance(wallet, transactions);
+            return (
+              <Card key={wallet.id} className="cursor-pointer hover:bg-muted/50 transition-colors flex flex-col" onClick={() => handleWalletClick(wallet.name)}>
                  <AlertDialog>
                     <DropdownMenu>
                         <CardHeader className="flex flex-row items-start justify-between space-y-0">
@@ -189,20 +211,27 @@ export default function WalletsPage() {
                                         <Edit className="mr-2 h-4 w-4" />
                                         Edit
                                     </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                            Delete
-                                        </DropdownMenuItem>
-                                    </AlertDialogTrigger>
+                                    {wallet.isDeletable && (
+                                        <>
+                                            <DropdownMenuSeparator />
+                                            <AlertDialogTrigger asChild>
+                                                <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    Delete
+                                                </DropdownMenuItem>
+                                            </AlertDialogTrigger>
+                                        </>
+                                    )}
                                 </DropdownMenuContent>
                             
                         </CardHeader>
-                        <CardContent>
-                            <div className={`text-2xl font-bold ${wallet.balance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
-                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(wallet.balance)}
+                        <CardContent className="flex-grow">
+                             <div className={`text-2xl font-bold ${currentBalance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
+                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(currentBalance)}
                             </div>
+                             <p className="text-xs text-muted-foreground mt-2">
+                                Initial: {new Intl.NumberFormat('en-US', { style: 'currency', currency: wallet.currency }).format(wallet.initialBalance)}
+                            </p>
                         </CardContent>
                     </DropdownMenu>
                     <AlertDialogContent>
@@ -210,17 +239,17 @@ export default function WalletsPage() {
                         <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                         <AlertDialogDescription>
                             This action cannot be undone. This will permanently delete this
-                            wallet and all associated transactions.
+                            wallet. You cannot delete a wallet with transactions.
                         </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={(e) => handleDeleteClick(e, wallet.id)}>Continue</AlertDialogAction>
+                        <AlertDialogAction onClick={(e) => handleDeleteClick(e, wallet)}>Continue</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
               </Card>
-          ))}
+          )})}
         </div>
       </div>
       <EditWalletDialog
