@@ -35,21 +35,18 @@ const runMigrations = (db: Database.Database) => {
     try {
         const walletColumns = db.pragma('table_info(wallets)');
         
-        // Migration: Add isDeletable if it doesn't exist
+        const hasBalance = walletColumns.some(col => col.name === 'balance');
+        const hasInitialBalance = walletColumns.some(col => col.name === 'initialBalance');
+        
+        if (hasBalance && !hasInitialBalance) {
+            db.exec('ALTER TABLE wallets RENAME COLUMN balance TO initialBalance');
+        }
+
         const hasIsDeletable = walletColumns.some(col => col.name === 'isDeletable');
         if (!hasIsDeletable) {
             db.exec('ALTER TABLE wallets ADD COLUMN isDeletable INTEGER NOT NULL DEFAULT 1');
         }
-
-        // Migration: Rename 'balance' to 'initialBalance' if old column exists
-        const hasBalance = walletColumns.some(col => col.name === 'balance');
-        const hasInitialBalance = walletColumns.some(col => col.name === 'initialBalance');
-
-        if (hasBalance && !hasInitialBalance) {
-            db.exec('ALTER TABLE wallets RENAME COLUMN balance TO initialBalance');
-        }
         
-        // Migration: Add currency column if it doesn't exist
         const hasCurrency = walletColumns.some(col => col.name === 'currency');
         if (!hasCurrency) {
             db.exec(`ALTER TABLE wallets ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'`);
@@ -61,7 +58,6 @@ const runMigrations = (db: Database.Database) => {
 
     // --- Post-migration setup ---
 
-    // Ensure dev user exists
     const userStmt = db.prepare('SELECT id FROM users WHERE id = ?');
     const user = userStmt.get('dev-user');
     if (!user) {
@@ -69,14 +65,12 @@ const runMigrations = (db: Database.Database) => {
         insertUser.run('dev-user', 'Dev User', 'dev@expensewise.app');
     }
     
-    // Ensure Main Wallet exists and is correctly flagged
     const mainWalletStmt = db.prepare('SELECT id from wallets WHERE userId = ? AND name = ?');
     let mainWallet = mainWalletStmt.get('dev-user', 'Main Wallet');
     if (!mainWallet) {
         const insertWallet = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
         insertWallet.run(randomUUID(), 'dev-user', 'Main Wallet', 0, '🏦', '[]', 0, 'USD');
     } else {
-        // Ensure the existing main wallet is not deletable
         const updateStmt = db.prepare('UPDATE wallets SET isDeletable = 0 WHERE id = ?');
         updateStmt.run((mainWallet as {id: string}).id);
     }

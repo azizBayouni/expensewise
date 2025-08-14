@@ -7,16 +7,13 @@ import type { Wallet } from '../lib/data';
 import { randomUUID } from 'crypto';
 import { convertAmount } from './transaction-service';
 
-export async function addWallet(userId: string, newWalletData: { name: string, icon?: string, initialBalance: number, currency: string }): Promise<void> {
-    const newWallet = { 
+export async function addWallet(userId: string, newWalletData: Omit<Wallet, 'id' | 'userId' | 'linkedCategoryIds' | 'isDeletable'>): Promise<void> {
+    const newWallet: Wallet = { 
+        ...newWalletData,
         id: randomUUID(),
         userId: userId,
-        name: newWalletData.name,
-        initialBalance: newWalletData.initialBalance,
-        icon: newWalletData.icon,
         linkedCategoryIds: [],
         isDeletable: true,
-        currency: newWalletData.currency
     };
 
     const db = await getDb();

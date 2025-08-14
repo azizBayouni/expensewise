@@ -40,6 +40,7 @@ export async function updateEvent(userId: string, updatedEvent: Event): Promise<
 
 export async function deleteEvent(userId: string, eventId: string): Promise<void> {
     const db = await getDb();
+    
     // Also untag transactions associated with this event
     const updateTransactions = db.prepare('UPDATE transactions SET eventId = NULL WHERE eventId = ? AND userId = ?');
     updateTransactions.run(eventId, userId);

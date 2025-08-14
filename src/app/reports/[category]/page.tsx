@@ -102,7 +102,7 @@ export default function CategoryReportDetails() {
   const { filteredTransactions, categoryHierarchy, topLevelCategory } = useMemo(() => {
     const decodedCategoryName = decodeURIComponent(categoryName as string);
     const topCat = categories.find(
-      (c) => c.name === decodedCategoryName && !c.parentId
+      (c) => c.name === decodedCategoryName
     );
 
     if (!topCat)
@@ -196,7 +196,6 @@ export default function CategoryReportDetails() {
     if (!selectedSubCategory) {
       return filteredTransactions;
     }
-    // Get all descendants of the selected sub-category
     const subCategory = categories.find(c => c.name === selectedSubCategory);
     if (!subCategory) return [];
 

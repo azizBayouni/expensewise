@@ -66,7 +66,6 @@ export async function deleteCategory(userId: string, categoryId: string): Promis
     
     const namesToDelete = allCategories.filter(c => allIdsToDelete.includes(c.id)).map(c => c.name);
 
-    // Check for associated transactions
     const placeholders = namesToDelete.map(() => '?').join(',');
     const checkStmt = db.prepare(`SELECT 1 FROM transactions WHERE userId = ? AND category IN (${placeholders}) LIMIT 1`);
     const hasTransactions = checkStmt.get(userId, ...namesToDelete);
