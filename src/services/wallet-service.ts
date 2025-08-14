@@ -14,8 +14,8 @@ export async function addWallet(userId: string, newWalletData: { name: string, i
         linkedCategoryIds: []
     };
     const db = await getDb();
-    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-    stmt.run(randomUUID(), newWallet.userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable ? 1 : 0, newWallet.currency);
+    const stmt = db.prepare('INSERT INTO wallets (id, userId, name, icon, linkedCategoryIds, initialBalance, isDeletable, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    stmt.run(randomUUID(), newWallet.userId, newWallet.name, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.initialBalance, newWallet.isDeletable ? 1 : 0, newWallet.currency);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('walletsUpdated'));
     }
