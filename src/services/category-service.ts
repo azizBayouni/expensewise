@@ -18,6 +18,9 @@ export async function updateCategory(userId: string, updatedCategory: Category):
     const db = await getDb();
     const stmt = db.prepare('UPDATE categories SET name = ?, type = ?, parentId = ?, icon = ? WHERE id = ? AND userId = ?');
     stmt.run(name, type, parentId, icon, id, userId);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('categoriesUpdated'));
+    }
 }
 
 export async function addCategory(userId: string, newCategoryData: Omit<Category, 'id' | 'userId'>): Promise<void> {
@@ -37,6 +40,9 @@ export async function addCategory(userId: string, newCategoryData: Omit<Category
     const db = await getDb();
     const stmt = db.prepare('INSERT INTO categories (id, userId, name, type, parentId, icon) VALUES (?, ?, ?, ?, ?, ?)');
     stmt.run(newCategory.id, newCategory.userId, newCategory.name, newCategory.type, newCategory.parentId, newCategory.icon);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('categoriesUpdated'));
+    }
 }
 
 export async function deleteCategory(userId: string, categoryId: string): Promise<void> {
@@ -73,6 +79,9 @@ export async function deleteCategory(userId: string, categoryId: string): Promis
         for (const id of ids) deleteStmt.run(id, userId);
     });
     deleteTransaction(allIdsToDelete);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('categoriesUpdated'));
+    }
 }
 
 export async function deleteAllCategories(userId: string): Promise<void> {
@@ -86,4 +95,7 @@ export async function deleteAllCategories(userId: string): Promise<void> {
 
     const stmt = db.prepare('DELETE FROM categories WHERE userId = ?');
     stmt.run(userId);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('categoriesUpdated'));
+    }
 }
