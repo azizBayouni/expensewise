@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getDb } from './db';
@@ -7,7 +6,7 @@ import type { Debt, Payment } from '../lib/data';
 import { convertAmount } from './transaction-service';
 import { randomUUID } from 'crypto';
 
-export async function addDebt(userId: string, newDebtData: Omit<Debt, 'id' | 'status' | 'payments' | 'userId'>): Promise<void> {
+export function addDebt(userId: string, newDebtData: Omit<Debt, 'id' | 'status' | 'payments' | 'userId'>): void {
     const newDebt: Debt = {
         ...newDebtData,
         id: randomUUID(),
@@ -16,7 +15,7 @@ export async function addDebt(userId: string, newDebtData: Omit<Debt, 'id' | 'st
         payments: [],
     };
     
-    const db = await getDb();
+    const db = getDb();
     const stmt = db.prepare(`
         INSERT INTO debts (id, userId, type, person, amount, currency, dueDate, status, note, payments) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -27,8 +26,8 @@ export async function addDebt(userId: string, newDebtData: Omit<Debt, 'id' | 'st
     }
 }
 
-export async function getAllDebts(userId: string): Promise<Debt[]> {
-    const db = await getDb();
+export function getAllDebts(userId: string): Debt[] {
+    const db = getDb();
     const stmt = db.prepare('SELECT * FROM debts WHERE userId = ?');
     const results = stmt.all(userId) as any[];
     return results.map(row => ({
@@ -37,8 +36,8 @@ export async function getAllDebts(userId: string): Promise<Debt[]> {
     }));
 }
 
-export async function getDebtById(userId: string, debtId: string): Promise<Debt | null> {
-    const db = await getDb();
+export function getDebtById(userId: string, debtId: string): Debt | null {
+    const db = getDb();
     const stmt = db.prepare('SELECT * FROM debts WHERE userId = ? AND id = ?');
     const result = stmt.get(userId, debtId) as any;
     if (!result) return null;
@@ -48,9 +47,9 @@ export async function getDebtById(userId: string, debtId: string): Promise<Debt 
     };
 }
 
-export async function updateDebt(userId: string, updatedDebt: Debt): Promise<void> {
+export function updateDebt(userId: string, updatedDebt: Debt): void {
   const { id, ...debtData } = updatedDebt;
-  const db = await getDb();
+  const db = getDb();
   const stmt = db.prepare(`
     UPDATE debts 
     SET type = ?, person = ?, amount = ?, currency = ?, dueDate = ?, status = ?, note = ?, payments = ?
@@ -62,8 +61,8 @@ export async function updateDebt(userId: string, updatedDebt: Debt): Promise<voi
     }
 }
 
-export async function deleteDebt(userId: string, debtId: string): Promise<void> {
-    const db = await getDb();
+export function deleteDebt(userId: string, debtId: string): void {
+    const db = getDb();
     const stmt = db.prepare('DELETE FROM debts WHERE id = ? AND userId = ?');
     stmt.run(debtId, userId);
     if (typeof window !== 'undefined') {
@@ -71,8 +70,8 @@ export async function deleteDebt(userId: string, debtId: string): Promise<void> 
     }
 }
 
-export async function addPaymentToDebt(userId: string, debtId: string, paymentAmount: number): Promise<Debt | null> {
-    const debt = await getDebtById(userId, debtId);
+export function addPaymentToDebt(userId: string, debtId: string, paymentAmount: number): Debt | null {
+    const debt = getDebtById(userId, debtId);
     if (!debt) {
         throw new Error('Debt not found');
     }
@@ -99,13 +98,13 @@ export async function addPaymentToDebt(userId: string, debtId: string, paymentAm
         status: newStatus
     }
 
-    await updateDebt(userId, updatedDebt);
+    updateDebt(userId, updatedDebt);
     return updatedDebt;
 }
 
 export async function convertAllDebts(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
-    const db = await getDb();
-    const allDebts = await getAllDebts(userId);
+    const db = getDb();
+    const allDebts = getAllDebts(userId);
     
     const debtsToConvert = allDebts.filter(d => d.currency === fromCurrency);
 

@@ -27,8 +27,8 @@ export function getCurrentUser(): User | null {
 
 
 export function updateUserProfile(profile: { displayName?: string }): void {
+  const db = getDb();
   if (profile.displayName) {
-    const db = getDb();
     try {
       const stmt = db.prepare('UPDATE users SET name = ? WHERE id = ?');
       stmt.run(profile.displayName, 'dev-user');

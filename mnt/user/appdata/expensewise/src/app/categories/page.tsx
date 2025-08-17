@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -33,13 +32,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { EditCategoryDialog } from '@/components/edit-category-dialog';
 import { AddCategoryDialog } from '@/components/add-category-dialog';
-import { deleteCategory, getAllCategories } from '@/services/category-service';
+import { deleteCategory, getAllCategories, getCategoryDepth } from '@/services/category-service';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth-provider';
 import type { Category } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getCategoryDepth } from '@/lib/data';
-
 
 export default function CategoriesPage() {
   const { user } = useAuth();
@@ -50,11 +47,11 @@ export default function CategoriesPage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const { toast } = useToast();
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(() => {
     if (!user) return;
     setIsLoading(true);
     try {
-        const cats = await getAllCategories(user.uid);
+        const cats = getAllCategories(user.uid);
         setCategories(cats);
     } catch (error) {
         console.error("Error fetching categories:", error);
@@ -97,10 +94,10 @@ export default function CategoriesPage() {
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteClick = async (categoryId: string) => {
+  const handleDeleteClick = (categoryId: string) => {
     if (!user) return;
     try {
-      await deleteCategory(user.uid, categoryId);
+      deleteCategory(user.uid, categoryId);
       toast({
         title: "Category Deleted",
         description: "The category and its sub-categories have been deleted.",

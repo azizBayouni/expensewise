@@ -3,9 +3,9 @@
 
 import { getDb } from './db';
 
-export async function getExchangeRateApiKey(userId: string): Promise<string | null> {
+export function getExchangeRateApiKey(userId: string): string | null {
   if (!userId) return null;
-  const db = await getDb();
+  const db = getDb();
   try {
     const stmt = db.prepare('SELECT exchangeRateApiKey FROM settings WHERE userId = ?');
     const result = stmt.get(userId) as { exchangeRateApiKey: string } | undefined;
@@ -16,9 +16,9 @@ export async function getExchangeRateApiKey(userId: string): Promise<string | nu
   }
 }
 
-export async function setExchangeRateApiKey(userId: string, apiKey: string): Promise<void> {
+export function setExchangeRateApiKey(userId: string, apiKey: string): void {
   if (!userId) return;
-  const db = await getDb();
+  const db = getDb();
   try {
     const stmt = db.prepare(`
         INSERT INTO settings (userId, exchangeRateApiKey) 

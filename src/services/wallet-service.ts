@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { convertAmount } from './transaction-service';
 
 export function addWallet(userId: string, newWalletData: { name: string, icon?: string, initialBalance: number, currency: string }): void {
+    const db = getDb();
     const newWallet = { 
         id: randomUUID(),
         userId: userId,
@@ -18,7 +19,6 @@ export function addWallet(userId: string, newWalletData: { name: string, icon?: 
         currency: newWalletData.currency
     };
 
-    const db = getDb();
     const stmt = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
     stmt.run(newWallet.id, newWallet.userId, newWallet.name, newWallet.initialBalance, newWallet.icon, JSON.stringify(newWallet.linkedCategoryIds), newWallet.isDeletable ? 1 : 0, newWallet.currency);
     
@@ -39,8 +39,8 @@ export function getAllWallets(userId: string): Wallet[] {
 }
 
 export function updateWallet(userId: string, updatedWallet: Wallet): void {
-  const { id, ...walletData } = updatedWallet;
   const db = getDb();
+  const { id, ...walletData } = updatedWallet;
   const stmt = db.prepare('UPDATE wallets SET name = ?, initialBalance = ?, icon = ?, linkedCategoryIds = ?, currency = ? WHERE id = ? AND userId = ?');
   stmt.run(walletData.name, walletData.initialBalance, walletData.icon, JSON.stringify(walletData.linkedCategoryIds || []), walletData.currency, id, userId);
 

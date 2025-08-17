@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -50,16 +49,15 @@ export default function Dashboard() {
   const [wallets, setWallets] = useState<WalletType[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(() => {
     if (!user) return;
     setIsLoading(true);
     try {
-        const [trans, wals, dts, currency] = await Promise.all([
-            getAllTransactions(user.uid),
-            getAllWallets(user.uid),
-            getAllDebts(user.uid),
-            getDefaultCurrency(user.uid),
-        ]);
+        const trans = getAllTransactions(user.uid);
+        const wals = getAllWallets(user.uid);
+        const dts = getAllDebts(user.uid);
+        const currency = getDefaultCurrency(user.uid);
+        
         setTransactions(trans);
         
         // This is a temporary fix for wallets that might not have a currency

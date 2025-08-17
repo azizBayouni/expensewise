@@ -1,10 +1,9 @@
-
 'use server';
 
 import { getDb } from './db';
 
-export async function getDefaultCurrency(userId: string): Promise<string> {
-  const db = await getDb();
+export function getDefaultCurrency(userId: string): string {
+  const db = getDb();
   try {
     const stmt = db.prepare('SELECT defaultCurrency FROM settings WHERE userId = ?');
     const result = stmt.get(userId) as { defaultCurrency: string } | undefined;
@@ -15,8 +14,8 @@ export async function getDefaultCurrency(userId: string): Promise<string> {
   }
 }
 
-export async function setDefaultCurrency(userId: string, currency: string): Promise<void> {
-  const db = await getDb();
+export function setDefaultCurrency(userId: string, currency: string): void {
+  const db = getDb();
   try {
     const stmt = db.prepare(`
         INSERT INTO settings (userId, defaultCurrency) 

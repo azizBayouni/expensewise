@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -47,7 +48,7 @@ export function AddWalletDialog({
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('🏦');
-  const [initialBalance, setInitialBalance] = useState<number | ''>(0);
+  const [initialBalance, setInitialBalance] = useState<number | ''>('');
   const [currency, setCurrency] = useState('');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [iconSearch, setIconSearch] = useState('');

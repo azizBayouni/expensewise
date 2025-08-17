@@ -25,8 +25,8 @@ export function getCategoryDepth(categoryId: string | null, allCategories: Categ
 }
 
 export function updateCategory(userId: string, updatedCategory: Category): void {
-    const { id, name, type, parentId, icon } = updatedCategory;
     const db = getDb();
+    const { id, name, type, parentId, icon } = updatedCategory;
     const stmt = db.prepare('UPDATE categories SET name = ?, type = ?, parentId = ?, icon = ? WHERE id = ? AND userId = ?');
     stmt.run(name, type, parentId, icon, id, userId);
 
@@ -36,6 +36,7 @@ export function updateCategory(userId: string, updatedCategory: Category): void 
 }
 
 export function addCategory(userId: string, newCategoryData: Omit<Category, 'id' | 'userId'>): void {
+    const db = getDb();
     const allCategories = getAllCategories(userId);
     if (newCategoryData.parentId) {
         const parentDepth = getCategoryDepth(newCategoryData.parentId, allCategories);
@@ -50,7 +51,6 @@ export function addCategory(userId: string, newCategoryData: Omit<Category, 'id'
         userId
     };
 
-    const db = getDb();
     const stmt = db.prepare('INSERT INTO categories (id, userId, name, type, parentId, icon) VALUES (?, ?, ?, ?, ?, ?)');
     stmt.run(newCategory.id, newCategory.userId, newCategory.name, newCategory.type, newCategory.parentId, newCategory.icon);
     

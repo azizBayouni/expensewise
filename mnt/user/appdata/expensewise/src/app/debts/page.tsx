@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -37,14 +36,12 @@ export default function DebtsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(() => {
     if (!user) return;
     setIsLoading(true);
     try {
-        const [userDebts, currency] = await Promise.all([
-            getAllDebts(user.uid),
-            getDefaultCurrency(user.uid),
-        ]);
+        const userDebts = getAllDebts(user.uid);
+        const currency = getDefaultCurrency(user.uid);
         setDebts(userDebts);
         setDefaultCurrency(currency);
     } catch (error) {

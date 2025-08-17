@@ -8,6 +8,7 @@ import { convertAmount } from './transaction-service';
 import { randomUUID } from 'crypto';
 
 export function addDebt(userId: string, newDebtData: Omit<Debt, 'id' | 'status' | 'payments' | 'userId'>): void {
+    const db = getDb();
     const newDebt: Debt = {
         ...newDebtData,
         id: randomUUID(),
@@ -16,7 +17,6 @@ export function addDebt(userId: string, newDebtData: Omit<Debt, 'id' | 'status' 
         payments: [],
     };
     
-    const db = getDb();
     const stmt = db.prepare(`
         INSERT INTO debts (id, userId, type, person, amount, currency, dueDate, status, note, payments) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -49,8 +49,8 @@ export function getDebtById(userId: string, debtId: string): Debt | null {
 }
 
 export function updateDebt(userId: string, updatedDebt: Debt): void {
-  const { id, ...debtData } = updatedDebt;
   const db = getDb();
+  const { id, ...debtData } = updatedDebt;
   const stmt = db.prepare(`
     UPDATE debts 
     SET type = ?, person = ?, amount = ?, currency = ?, dueDate = ?, status = ?, note = ?, payments = ?
@@ -72,6 +72,7 @@ export function deleteDebt(userId: string, debtId: string): void {
 }
 
 export function addPaymentToDebt(userId: string, debtId: string, paymentAmount: number): Debt | null {
+    const db = getDb();
     const debt = getDebtById(userId, debtId);
     if (!debt) {
         throw new Error('Debt not found');

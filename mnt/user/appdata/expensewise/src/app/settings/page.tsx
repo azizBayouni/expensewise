@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from "react";
@@ -67,32 +66,33 @@ export default function SettingsPage() {
   useEffect(() => {
     setIsClient(true);
     if (user) {
-        setName(user.displayName || '');
-        setEmail(user.email || '');
-        getDefaultCurrency(user.uid).then(currency => {
-            setCurrentDefaultCurrency(currency);
-            setSelectedCurrency(currency);
-        });
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            setName(currentUser.displayName || '');
+            setEmail(currentUser.email || '');
+        }
+        
+        const defaultCurrency = getDefaultCurrency(user.uid);
+        setCurrentDefaultCurrency(defaultCurrency);
+        setSelectedCurrency(defaultCurrency);
+        
         getExchangeRateApiKey(user.uid).then(key => {
             setExchangeRateKey(key || '');
             if (key) {
-                // You might want to auto-verify on load, or just show unverified
                 setKeyVerificationStatus('unverified');
             }
         });
     }
   }, [user]);
 
-  const handleProfileSave = async () => {
+  const handleProfileSave = () => {
     if (!user) return;
     try {
-        await updateUserProfile({ displayName: name });
+        updateUserProfile({ displayName: name });
         toast({
         title: "Profile Saved",
         description: "Your name has been updated.",
         });
-        // This is a simple way to force the header to update.
-        // In a more complex app, global state management would be better.
         window.dispatchEvent(new Event('profileUpdated'));
     } catch(e) {
         toast({
@@ -151,15 +151,13 @@ export default function SettingsPage() {
       }
     }
     
-    await setDefaultCurrency(user.uid, selectedCurrency);
+    setDefaultCurrency(user.uid, selectedCurrency);
     setCurrentDefaultCurrency(selectedCurrency);
     
     toast({
       title: "Settings Saved",
       description: `Default currency set to ${selectedCurrency}.`,
     });
-    // A full page reload would be a simple way to force all components to re-render
-    // with the new currency. A more sophisticated app might use a global state manager.
     window.location.reload();
   };
 
@@ -189,13 +187,11 @@ export default function SettingsPage() {
     document.body.removeChild(link);
   };
 
-  const handleExport = async () => {
+  const handleExport = () => {
     if (!user) return;
-    const [allTransactions, allCategories, allEvents] = await Promise.all([
-        getAllTransactions(user.uid),
-        getAllCategories(user.uid),
-        getAllEvents(user.uid),
-    ]);
+    const allTransactions = getAllTransactions(user.uid);
+    const allCategories = getAllCategories(user.uid);
+    const allEvents = getAllEvents(user.uid);
 
     // 1. Prepare Transaction Data
     const transactionData = allTransactions.map((t, index) => {
@@ -238,9 +234,9 @@ export default function SettingsPage() {
     });
   };
   
-   const handleExportCategories = async () => {
+   const handleExportCategories = () => {
     if (!user) return;
-    const allCategories = await getAllCategories(user.uid);
+    const allCategories = getAllCategories(user.uid);
     const categoryData = allCategories.map(c => ({
       'Category Name': c.name,
       'Parent Category': allCategories.find(p => p.id === c.parentId)?.name || '',
@@ -263,7 +259,7 @@ export default function SettingsPage() {
     });
   };
 
-  const handleImport = async () => {
+  const handleImport = () => {
     if (!importFile) {
       toast({
         title: 'No file selected',
@@ -274,12 +270,10 @@ export default function SettingsPage() {
     }
     if (!user) return;
 
-    const [allCategories, allWallets, allEvents, defaultCurrency] = await Promise.all([
-        getAllCategories(user.uid),
-        getAllWallets(user.uid),
-        getAllEvents(user.uid),
-        getDefaultCurrency(user.uid),
-    ]);
+    const allCategories = getAllCategories(user.uid);
+    const allWallets = getAllWallets(user.uid);
+    const allEvents = getAllEvents(user.uid);
+    const defaultCurrency = getDefaultCurrency(user.uid);
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -356,7 +350,7 @@ export default function SettingsPage() {
           newTransactions.push(newTransaction as any);
         });
 
-        await addTransactions(user.uid, newTransactions);
+        addTransactions(user.uid, newTransactions);
 
         toast({
           title: 'Import Successful',
@@ -380,7 +374,7 @@ export default function SettingsPage() {
     reader.readAsText(importFile);
   };
   
-  const handleImportCategories = async () => {
+  const handleImportCategories = () => {
     if (!importCategoriesFile) {
       toast({
         title: 'No file selected',
@@ -391,7 +385,7 @@ export default function SettingsPage() {
     }
     if (!user) return;
 
-    const allCategories = await getAllCategories(user.uid);
+    const allCategories = getAllCategories(user.uid);
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -425,7 +419,7 @@ export default function SettingsPage() {
             parentId = parentCategory.id;
           }
 
-          await addCategory(user.uid, {
+          addCategory(user.uid, {
             name,
             parentId,
             type,
@@ -455,32 +449,19 @@ export default function SettingsPage() {
     reader.readAsText(importCategoriesFile);
   };
 
-  const handleBackup = async () => {
+  const handleBackup = () => {
     if (!user) return;
     try {
-      const [
-        allTransactions, 
-        allCategories, 
-        allWallets, 
-        allDebts, 
-        allEvents,
-        currentUser,
-        defaultCurrency,
-        theme,
-        defaultWallet,
-        travelMode
-      ] = await Promise.all([
-        getAllTransactions(user.uid),
-        getAllCategories(user.uid),
-        getAllWallets(user.uid),
-        getAllDebts(user.uid),
-        getAllEvents(user.uid),
-        getCurrentUser(),
-        getDefaultCurrency(user.uid),
-        getTheme(),
-        getDefaultWallet(user.uid),
-        getTravelMode()
-      ]);
+      const allTransactions = getAllTransactions(user.uid);
+      const allCategories = getAllCategories(user.uid);
+      const allWallets = getAllWallets(user.uid);
+      const allDebts = getAllDebts(user.uid);
+      const allEvents = getAllEvents(user.uid);
+      const currentUser = getCurrentUser();
+      const defaultCurrency = getDefaultCurrency(user.uid);
+      const theme = getTheme();
+      const defaultWallet = getDefaultWallet(user.uid);
+      const travelMode = getTravelMode();
 
       const settings = {
         defaultCurrency,
@@ -549,28 +530,28 @@ export default function SettingsPage() {
 
             // --- RESTORE DATA ---
             toast({ title: "Restore in progress...", description: "Please wait."});
-            await deleteAllTransactionsService(user.uid);
-            await deleteAllCategories(user.uid);
+            deleteAllTransactionsService(user.uid);
+            deleteAllCategories(user.uid);
             // We can add more deletions here for wallets, debts, etc. if needed.
             
-            if (data.transactions) await addTransactions(user.uid, data.transactions.map((t: any) => ({...t, userId: user.uid})));
+            if (data.transactions) addTransactions(user.uid, data.transactions.map((t: any) => ({...t, userId: user.uid})));
             if (data.categories) {
                 for(const c of data.categories) {
-                    await addCategory(user.uid, {...c, userId: user.uid});
+                    addCategory(user.uid, {...c, userId: user.uid});
                 }
             }
             
             // --- RESTORE SETTINGS ---
-            if (data.settings.defaultCurrency) await setDefaultCurrency(user.uid, data.settings.defaultCurrency);
+            if (data.settings.defaultCurrency) setDefaultCurrency(user.uid, data.settings.defaultCurrency);
             if (data.settings.theme) setAppTheme(data.settings.theme);
-            if (data.settings.defaultWallet) await setDefaultWallet(user.uid, data.settings.defaultWallet);
+            if (data.settings.defaultWallet) setDefaultWallet(user.uid, data.settings.defaultWallet);
             if (data.settings.travelMode && data.settings.travelMode.isActive) {
                 setTravelMode(data.settings.travelMode);
             }
 
             // --- RESTORE USER ---
             if (data.user?.name) {
-                await updateUserProfile({ displayName: data.user.name });
+                updateUserProfile({ displayName: data.user.name });
             }
 
             toast({
@@ -597,9 +578,9 @@ export default function SettingsPage() {
     reader.readAsText(restoreFile);
   };
   
-  const handleSaveApiKey = async () => {
+  const handleSaveApiKey = () => {
     if (!user) return;
-    await setExchangeRateApiKey(user.uid, exchangeRateKey);
+    setExchangeRateApiKey(user.uid, exchangeRateKey);
     setKeyVerificationStatus('unverified');
     toast({
         title: 'API Key Saved',

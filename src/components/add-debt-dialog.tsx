@@ -81,30 +81,22 @@ export function AddDebtDialog({
         return;
     }
 
-    try {
-      addDebt(user.uid, {
-        type,
-        person,
-        amount: Number(amount),
-        currency,
-        dueDate: format(dueDate, 'yyyy-MM-dd'),
-        note,
-      });
-      
-      toast({
-          title: "Debt Added",
-          description: `The debt for "${person}" has been created.`,
-      });
+    addDebt(user.uid, {
+      type,
+      person,
+      amount: Number(amount),
+      currency,
+      dueDate: format(dueDate, 'yyyy-MM-dd'),
+      note,
+    });
+    
+    toast({
+        title: "Debt Added",
+        description: `The debt for "${person}" has been created.`,
+    });
 
-      onDebtAdded();
-      onOpenChange(false);
-    } catch (error) {
-       toast({
-          title: "Error adding debt",
-          description: "An unexpected error occurred.",
-          variant: "destructive"
-      });
-    }
+    onDebtAdded();
+    onOpenChange(false);
   };
   
   return (

@@ -95,16 +95,14 @@ export function EditTransactionDialog({
   const [allEvents, setAllEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(() => {
     if (!user) return;
     setIsLoading(true);
     try {
-        const [cats, wals, evs, defCurrency] = await Promise.all([
-            getAllCategories(user.uid),
-            getAllWallets(user.uid),
-            getAllEvents(user.uid),
-            getDefaultCurrency(user.uid)
-        ]);
+        const cats = getAllCategories(user.uid);
+        const wals = getAllWallets(user.uid);
+        const evs = getAllEvents(user.uid);
+        const defCurrency = getDefaultCurrency(user.uid);
         setAllCategories(cats);
         setAllWallets(wals);
         setAllEvents(evs);
@@ -127,7 +125,7 @@ export function EditTransactionDialog({
       setAmount(amountToConvert);
       return;
     }
-    const apiKey = await getExchangeRateApiKey(user.uid);
+    const apiKey = getExchangeRateApiKey(user.uid);
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
@@ -160,9 +158,9 @@ export function EditTransactionDialog({
     }
   }, [toast, user]);
 
-  const resetAndInitialize = useCallback(async () => {
+  const resetAndInitialize = useCallback(() => {
     if (!user) return;
-    await fetchData();
+    fetchData();
     const travelMode = getTravelMode();
     setIsTravelMode(travelMode.isActive);
 
@@ -281,9 +279,9 @@ export function EditTransactionDialog({
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (transaction && user) {
-        await deleteTransaction(user.uid, transaction.id);
+        deleteTransaction(user.uid, transaction.id);
         toast({
             title: 'Transaction Deleted',
             description: 'The transaction has been successfully deleted.',

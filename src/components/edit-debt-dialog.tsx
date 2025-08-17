@@ -95,7 +95,7 @@ export function EditDebtDialog({
     setNewPaymentAmount('');
   }, [debt, isOpen, updateLocalState]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!debt || !user || !person || !amount || !dueDate) {
         toast({
@@ -106,7 +106,7 @@ export function EditDebtDialog({
         return;
     }
 
-    const updatedDebt: Debt = {
+    const updatedDebtData: Debt = {
       ...debt,
       type,
       person,
@@ -118,7 +118,7 @@ export function EditDebtDialog({
       payments,
     };
     
-    await updateDebt(user.uid, updatedDebt);
+    updateDebt(user.uid, updatedDebtData);
     
     toast({
         title: "Debt Updated",
@@ -129,9 +129,9 @@ export function EditDebtDialog({
     onOpenChange(false);
   };
   
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (debt && user) {
-      await deleteDebt(user.uid, debt.id);
+      deleteDebt(user.uid, debt.id);
       toast({
           title: 'Debt Deleted',
           description: 'The debt has been successfully deleted.',
@@ -142,7 +142,7 @@ export function EditDebtDialog({
     }
   };
 
-  const handleAddPayment = async () => {
+  const handleAddPayment = () => {
     if (debt && user && newPaymentAmount) {
       const paymentValue = Number(newPaymentAmount);
       if (paymentValue <= 0) {
@@ -153,11 +153,11 @@ export function EditDebtDialog({
         toast({ title: "Overpayment", description: "Payment cannot exceed remaining amount.", variant: "destructive" });
         return;
       }
-      const updatedDebtResult = await addPaymentToDebt(user.uid, debt.id, paymentValue);
+      const updatedDebtResult = addPaymentToDebt(user.uid, debt.id, paymentValue);
       if (updatedDebtResult) {
-          updateLocalState(updatedDebtResult);
-          setNewPaymentAmount('');
-          toast({ title: "Payment Added", description: "The partial payment has been recorded." });
+        updateLocalState(updatedDebtResult);
+        setNewPaymentAmount('');
+        toast({ title: "Payment Added", description: "The partial payment has been recorded." });
       }
     }
   };

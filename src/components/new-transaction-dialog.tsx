@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -90,7 +91,7 @@ export function NewTransactionDialog({
         setAmount(amountToConvert);
         return;
     }
-    const apiKey = await getExchangeRateApiKey(user.uid);
+    const apiKey = getExchangeRateApiKey(user.uid);
     if (!apiKey) {
       toast({
         title: 'API Key Missing',

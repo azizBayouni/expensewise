@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -55,15 +53,13 @@ export default function WalletsPage() {
   const { toast } = useToast();
   const router = useRouter();
   
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(() => {
     if (!user) return;
     setIsLoading(true);
     try {
-        const [wals, trans, defWallet] = await Promise.all([
-            getAllWallets(user.uid),
-            getAllTransactions(user.uid),
-            getDefaultWallet(user.uid)
-        ]);
+        const wals = getAllWallets(user.uid);
+        const trans = getAllTransactions(user.uid);
+        const defWallet = getDefaultWallet(user.uid);
         
         setWallets(wals);
         setTransactions(trans);
@@ -104,7 +100,7 @@ export default function WalletsPage() {
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteClick = async (e: React.MouseEvent, wallet: Wallet) => {
+  const handleDeleteClick = (e: React.MouseEvent, wallet: Wallet) => {
     e.stopPropagation();
     if (!user) return;
     
@@ -118,12 +114,11 @@ export default function WalletsPage() {
     }
 
     try {
-      await deleteWallet(user.uid, wallet.id);
+      deleteWallet(user.uid, wallet.id);
       toast({
           title: "Wallet Deleted",
           description: "The wallet has been successfully deleted.",
       });
-      fetchData();
     } catch (error: any) {
        toast({
           title: "Deletion Failed",
@@ -133,10 +128,10 @@ export default function WalletsPage() {
     }
   };
 
-  const handleSetDefault = async (e: React.MouseEvent, walletId: string) => {
+  const handleSetDefault = (e: React.MouseEvent, walletId: string) => {
     e.stopPropagation();
     if (!user) return;
-    await setDefaultWallet(user.uid, walletId);
+    setDefaultWallet(user.uid, walletId);
     setDefaultWalletId(walletId);
     toast({
       title: "Default Wallet Set",

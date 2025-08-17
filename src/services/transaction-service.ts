@@ -23,6 +23,7 @@ async function uploadAttachment(userId: string, transactionId: string, file: Fil
 }
 
 export async function addTransaction(userId: string, newTransaction: Omit<AppTransaction, 'id' | 'userId'>, newAttachments: File[]): Promise<void> {
+    const db = getDb();
     const transactionId = randomUUID();
     let attachmentUrls: {name: string, url: string}[] = [];
 
@@ -33,7 +34,6 @@ export async function addTransaction(userId: string, newTransaction: Omit<AppTra
     }
     
     const { attachments, ...transactionData } = newTransaction;
-    const db = getDb();
     const stmt = db.prepare(`
         INSERT INTO transactions (id, userId, date, amount, type, category, wallet, description, currency, attachments, eventId, excludeFromReport)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -87,6 +87,7 @@ export function getTransactionsForWallet(userId: string, walletName: string): Ap
 }
 
 export async function updateTransaction(userId: string, updatedTransaction: AppTransaction, newAttachments: File[]): Promise<void> {
+    const db = getDb();
     const { id, attachments, ...transactionData } = updatedTransaction;
     
     let finalAttachments = attachments || [];
@@ -98,7 +99,6 @@ export async function updateTransaction(userId: string, updatedTransaction: AppT
         finalAttachments = [...finalAttachments, ...newAttachmentUrls];
     }
     
-    const db = getDb();
     const stmt = db.prepare(`
         UPDATE transactions 
         SET date = ?, amount = ?, type = ?, category = ?, wallet = ?, description = ?, currency = ?, attachments = ?, eventId = ?, excludeFromReport = ?
@@ -129,6 +129,7 @@ export function deleteAllTransactions(userId: string): void {
 }
 
 async function getExchangeRate(userId: string, fromCurrency: string, toCurrency: string): Promise<number> {
+    const db = getDb();
     const apiKey = await getExchangeRateApiKey(userId);
     if (!apiKey) {
       throw new Error("ExchangeRate API Key not found. Please set it in the settings.");

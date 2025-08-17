@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getDb } from './db';
@@ -9,8 +8,8 @@ type User = {
     email: string | null;
 }
 
-export async function getCurrentUser(): Promise<User | null> {
-  const db = await getDb();
+export function getCurrentUser(): User | null {
+  const db = getDb();
   // In a real app, you'd fetch this from the DB based on a session.
   // For this mock setup, we'll ensure the dev user exists.
   const stmt = db.prepare('SELECT id as uid, name as displayName, email FROM users WHERE id = ?');
@@ -26,9 +25,9 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 
-export async function updateUserProfile(profile: { displayName?: string }): Promise<void> {
+export function updateUserProfile(profile: { displayName?: string }): void {
   if (profile.displayName) {
-    const db = await getDb();
+    const db = getDb();
     try {
       const stmt = db.prepare('UPDATE users SET name = ? WHERE id = ?');
       stmt.run(profile.displayName, 'dev-user');
