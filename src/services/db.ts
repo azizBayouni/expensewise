@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import Database from 'better-sqlite3';
@@ -22,7 +21,7 @@ const runMigrations = (db: Database.Database) => {
     
     db.pragma('journal_mode = WAL');
     
-    // Create all tables first
+    // Create all tables with their correct, final schema
     db.exec(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT, email TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL, parentId TEXT, icon TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, icon TEXT, linkedCategoryIds TEXT, initialBalance REAL NOT NULL DEFAULT 0, isDeletable INTEGER NOT NULL DEFAULT 1, currency TEXT NOT NULL DEFAULT 'USD');`);
@@ -32,7 +31,6 @@ const runMigrations = (db: Database.Database) => {
     db.exec(`CREATE TABLE IF NOT EXISTS settings (userId TEXT PRIMARY KEY, defaultCurrency TEXT, defaultWalletId TEXT, exchangeRateApiKey TEXT, theme TEXT);`);
     
     // ----- Migrations for existing databases -----
-    // Run migrations inside a try-catch block as they may fail on a fresh DB
     try {
         const walletColumns = db.pragma('table_info(wallets)');
         
@@ -45,6 +43,7 @@ const runMigrations = (db: Database.Database) => {
         // Migration: Rename 'balance' to 'initialBalance' if old column exists
         const hasBalance = walletColumns.some(col => col.name === 'balance');
         const hasInitialBalance = walletColumns.some(col => col.name === 'initialBalance');
+
         if (hasBalance && !hasInitialBalance) {
             db.exec('ALTER TABLE wallets RENAME COLUMN balance TO initialBalance');
         }
@@ -56,7 +55,7 @@ const runMigrations = (db: Database.Database) => {
         }
 
     } catch(e) { 
-        console.error("A migration failed, which can be normal on a fresh database. Carrying on.", e);
+        console.error("A migration failed, which can be normal on first run. Carrying on.", e);
     }
 
     // --- Post-migration setup ---
@@ -83,17 +82,10 @@ const runMigrations = (db: Database.Database) => {
 };
 
 
-export async function getDb() {
+export function getDb() {
   if (!db) {
     db = new Database(DB_PATH);
     runMigrations(db);
   }
   return db;
 }
-
-(async () => {
-    await getDb();
-})();
-
-
-

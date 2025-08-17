@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -125,15 +124,14 @@ export function NewTransactionDialog({
   }, [toast, user]);
 
 
-  const resetForm = useCallback(async () => {
+  const resetForm = useCallback(() => {
     if (!user) return;
-    const [cats, wals, evs, defCurrency, defWalletId] = await Promise.all([
-        getAllCategories(user.uid),
-        getAllWallets(user.uid),
-        getAllEvents(user.uid),
-        getDefaultCurrency(user.uid),
-        getDefaultWallet(user.uid),
-    ]);
+    const cats = getAllCategories(user.uid);
+    const wals = getAllWallets(user.uid);
+    const evs = getAllEvents(user.uid);
+    const defCurrency = getDefaultCurrency(user.uid);
+    const defWalletId = getDefaultWallet(user.uid);
+
     setAllCategories(cats);
     setAllWallets(wals);
     setAllEvents(evs);

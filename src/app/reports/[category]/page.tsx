@@ -50,15 +50,13 @@ export default function CategoryReportDetails() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(() => {
     if (!user) return;
     setIsLoading(true);
     try {
-        const [trans, cats, currency] = await Promise.all([
-            getAllTransactions(user.uid),
-            getAllCategories(user.uid),
-            getDefaultCurrency(user.uid),
-        ]);
+        const trans = getAllTransactions(user.uid);
+        const cats = getAllCategories(user.uid);
+        const currency = getDefaultCurrency(user.uid);
         setTransactions(trans);
         setCategories(cats);
         setDefaultCurrency(currency);

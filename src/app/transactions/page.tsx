@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -62,17 +61,16 @@ export default function TransactionsPage() {
   const [walletFilter, setWalletFilter] = useState('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(() => {
     if (!user) return;
     setIsLoading(true);
     try {
-        const [trans, cats, wals, evs, currency] = await Promise.all([
-            getAllTransactions(user.uid),
-            getAllCategories(user.uid),
-            getAllWallets(user.uid),
-            getAllEvents(user.uid),
-            getDefaultCurrency(user.uid),
-        ]);
+        const trans = getAllTransactions(user.uid);
+        const cats = getAllCategories(user.uid);
+        const wals = getAllWallets(user.uid);
+        const evs = getAllEvents(user.uid);
+        const currency = getDefaultCurrency(user.uid);
+        
         setTransactions(trans);
         setCategories(cats);
         setWallets(wals);

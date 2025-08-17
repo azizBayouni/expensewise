@@ -13,13 +13,21 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { currencies } from "@/lib/data"
 import { FileUp, Download, UploadCloud, Moon, Sun, Trash2, HardDriveDownload, HardDriveUpload, KeyRound, CheckCircle, XCircle } from "lucide-react"
-import { getDefaultCurrency } from "@/services/settings-service";
+import { getDefaultCurrency, setDefaultCurrency } from "@/services/settings-service";
 import { useToast } from "@/hooks/use-toast";
 import { addTransactions, deleteAllTransactions as deleteAllTransactionsService, convertAllTransactions } from "@/services/transaction-service";
 import { convertAllWallets, getAllWallets, setDefaultWallet, getDefaultWallet } from "@/services/wallet-service";
 import { convertAllDebts, getAllDebts } from "@/services/debt-service";
+import { ConfirmCurrencyChangeDialog } from "@/components/confirm-currency-change-dialog";
 import { updateUserProfile, getCurrentUser } from "@/services/user-service";
 import type { Transaction, Category, Wallet, Debt, Event } from "@/lib/data";
 import * as XLSX from 'xlsx';
@@ -41,6 +49,9 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [currentDefaultCurrency, setCurrentDefaultCurrency] = useState('');
+  const [selectedCurrency, setSelectedCurrency] = useState('');
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isDeleteAllTransactionsDialogOpen, setIsDeleteAllTransactionsDialogOpen] = useState(false);
   const [isDeleteAllCategoriesDialogOpen, setIsDeleteAllCategoriesDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -56,28 +67,33 @@ export default function SettingsPage() {
   useEffect(() => {
     setIsClient(true);
     if (user) {
-        setName(user.displayName || '');
-        setEmail(user.email || '');
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            setName(currentUser.displayName || '');
+            setEmail(currentUser.email || '');
+        }
+        
+        const defaultCurrency = getDefaultCurrency(user.uid);
+        setCurrentDefaultCurrency(defaultCurrency);
+        setSelectedCurrency(defaultCurrency);
+        
         getExchangeRateApiKey(user.uid).then(key => {
             setExchangeRateKey(key || '');
             if (key) {
-                // You might want to auto-verify on load, or just show unverified
                 setKeyVerificationStatus('unverified');
             }
         });
     }
   }, [user]);
 
-  const handleProfileSave = async () => {
+  const handleProfileSave = () => {
     if (!user) return;
     try {
-        await updateUserProfile({ displayName: name });
+        updateUserProfile({ displayName: name });
         toast({
         title: "Profile Saved",
         description: "Your name has been updated.",
         });
-        // This is a simple way to force the header to update.
-        // In a more complex app, global state management would be better.
         window.dispatchEvent(new Event('profileUpdated'));
     } catch(e) {
         toast({
@@ -86,6 +102,64 @@ export default function SettingsPage() {
             variant: "destructive"
         })
     }
+  };
+
+  const handleCurrencySaveClick = () => {
+    if (selectedCurrency !== currentDefaultCurrency) {
+      setIsConfirmDialogOpen(true);
+    } else {
+      toast({
+        title: "No Changes",
+        description: "The default currency is already set to " + selectedCurrency,
+      });
+    }
+  };
+
+  const handleConfirmation = async (conversionType: 'convert' | 'keep') => {
+    if (!user) return;
+    const oldCurrency = currentDefaultCurrency;
+    
+    if (conversionType === 'convert') {
+      const apiKey = await getExchangeRateApiKey(user.uid);
+      if (!apiKey) {
+        toast({
+          title: "API Key Required",
+          description: "An ExchangeRate-API key is required for currency conversion. Please add one in the settings.",
+          variant: "destructive",
+        });
+        return;
+      }
+      try {
+        toast({
+          title: "Conversion in Progress",
+          description: "Please wait while we convert your data...",
+        });
+        await convertAllTransactions(user.uid, oldCurrency, selectedCurrency);
+        await convertAllWallets(user.uid, oldCurrency, selectedCurrency);
+        await convertAllDebts(user.uid, oldCurrency, selectedCurrency);
+        toast({
+          title: "Conversion Successful",
+          description: `All financial data has been converted to ${selectedCurrency}.`,
+        });
+      } catch (error: any) {
+        console.error("Conversion failed:", error);
+        toast({
+          title: "Conversion Failed",
+          description: error.message || "Could not convert all data. Please try again.",
+          variant: "destructive",
+        });
+        return; 
+      }
+    }
+    
+    setDefaultCurrency(user.uid, selectedCurrency);
+    setCurrentDefaultCurrency(selectedCurrency);
+    
+    toast({
+      title: "Settings Saved",
+      description: `Default currency set to ${selectedCurrency}.`,
+    });
+    window.location.reload();
   };
 
   const handleDownloadTemplate = () => {
@@ -114,13 +188,11 @@ export default function SettingsPage() {
     document.body.removeChild(link);
   };
 
-  const handleExport = async () => {
+  const handleExport = () => {
     if (!user) return;
-    const [allTransactions, allCategories, allEvents] = await Promise.all([
-        getAllTransactions(user.uid),
-        getAllCategories(user.uid),
-        getAllEvents(user.uid),
-    ]);
+    const allTransactions = getAllTransactions(user.uid);
+    const allCategories = getAllCategories(user.uid);
+    const allEvents = getAllEvents(user.uid);
 
     // 1. Prepare Transaction Data
     const transactionData = allTransactions.map((t, index) => {
@@ -163,9 +235,9 @@ export default function SettingsPage() {
     });
   };
   
-   const handleExportCategories = async () => {
+   const handleExportCategories = () => {
     if (!user) return;
-    const allCategories = await getAllCategories(user.uid);
+    const allCategories = getAllCategories(user.uid);
     const categoryData = allCategories.map(c => ({
       'Category Name': c.name,
       'Parent Category': allCategories.find(p => p.id === c.parentId)?.name || '',
@@ -188,7 +260,7 @@ export default function SettingsPage() {
     });
   };
 
-  const handleImport = async () => {
+  const handleImport = () => {
     if (!importFile) {
       toast({
         title: 'No file selected',
@@ -199,12 +271,10 @@ export default function SettingsPage() {
     }
     if (!user) return;
 
-    const [allCategories, allWallets, allEvents, defaultCurrency] = await Promise.all([
-        getAllCategories(user.uid),
-        getAllWallets(user.uid),
-        getAllEvents(user.uid),
-        getDefaultCurrency(user.uid),
-    ]);
+    const allCategories = getAllCategories(user.uid);
+    const allWallets = getAllWallets(user.uid);
+    const allEvents = getAllEvents(user.uid);
+    const defaultCurrency = getDefaultCurrency(user.uid);
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -281,7 +351,7 @@ export default function SettingsPage() {
           newTransactions.push(newTransaction as any);
         });
 
-        await addTransactions(user.uid, newTransactions);
+        addTransactions(user.uid, newTransactions);
 
         toast({
           title: 'Import Successful',
@@ -305,7 +375,7 @@ export default function SettingsPage() {
     reader.readAsText(importFile);
   };
   
-  const handleImportCategories = async () => {
+  const handleImportCategories = () => {
     if (!importCategoriesFile) {
       toast({
         title: 'No file selected',
@@ -316,7 +386,7 @@ export default function SettingsPage() {
     }
     if (!user) return;
 
-    const allCategories = await getAllCategories(user.uid);
+    const allCategories = getAllCategories(user.uid);
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -350,7 +420,7 @@ export default function SettingsPage() {
             parentId = parentCategory.id;
           }
 
-          await addCategory(user.uid, {
+          addCategory(user.uid, {
             name,
             parentId,
             type,
@@ -380,32 +450,19 @@ export default function SettingsPage() {
     reader.readAsText(importCategoriesFile);
   };
 
-  const handleBackup = async () => {
+  const handleBackup = () => {
     if (!user) return;
     try {
-      const [
-        allTransactions, 
-        allCategories, 
-        allWallets, 
-        allDebts, 
-        allEvents,
-        currentUser,
-        defaultCurrency,
-        theme,
-        defaultWallet,
-        travelMode
-      ] = await Promise.all([
-        getAllTransactions(user.uid),
-        getAllCategories(user.uid),
-        getAllWallets(user.uid),
-        getAllDebts(user.uid),
-        getAllEvents(user.uid),
-        getCurrentUser(),
-        getDefaultCurrency(user.uid),
-        getTheme(),
-        getDefaultWallet(user.uid),
-        getTravelMode()
-      ]);
+      const allTransactions = getAllTransactions(user.uid);
+      const allCategories = getAllCategories(user.uid);
+      const allWallets = getAllWallets(user.uid);
+      const allDebts = getAllDebts(user.uid);
+      const allEvents = getAllEvents(user.uid);
+      const currentUser = getCurrentUser();
+      const defaultCurrency = getDefaultCurrency(user.uid);
+      const theme = getTheme();
+      const defaultWallet = getDefaultWallet(user.uid);
+      const travelMode = getTravelMode();
 
       const settings = {
         defaultCurrency,
@@ -474,27 +531,28 @@ export default function SettingsPage() {
 
             // --- RESTORE DATA ---
             toast({ title: "Restore in progress...", description: "Please wait."});
-            await deleteAllTransactionsService(user.uid);
-            await deleteAllCategories(user.uid);
+            deleteAllTransactionsService(user.uid);
+            deleteAllCategories(user.uid);
             // We can add more deletions here for wallets, debts, etc. if needed.
             
-            if (data.transactions) await addTransactions(user.uid, data.transactions.map((t: any) => ({...t, userId: user.uid})));
+            if (data.transactions) addTransactions(user.uid, data.transactions.map((t: any) => ({...t, userId: user.uid})));
             if (data.categories) {
                 for(const c of data.categories) {
-                    await addCategory(user.uid, {...c, userId: user.uid});
+                    addCategory(user.uid, {...c, userId: user.uid});
                 }
             }
             
             // --- RESTORE SETTINGS ---
+            if (data.settings.defaultCurrency) setDefaultCurrency(user.uid, data.settings.defaultCurrency);
             if (data.settings.theme) setAppTheme(data.settings.theme);
-            if (data.settings.defaultWallet) await setDefaultWallet(user.uid, data.settings.defaultWallet);
+            if (data.settings.defaultWallet) setDefaultWallet(user.uid, data.settings.defaultWallet);
             if (data.settings.travelMode && data.settings.travelMode.isActive) {
                 setTravelMode(data.settings.travelMode);
             }
 
             // --- RESTORE USER ---
             if (data.user?.name) {
-                await updateUserProfile({ displayName: data.user.name });
+                updateUserProfile({ displayName: data.user.name });
             }
 
             toast({
@@ -623,6 +681,29 @@ export default function SettingsPage() {
                 </div>
               )}
             </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Currency Settings</CardTitle>
+              <CardDescription>Choose your default currency.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="default-currency">Default Currency</Label>
+                <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
+                  <SelectTrigger className="w-full md:w-1/3">
+                    <SelectValue placeholder="Select a currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+            <CardFooter className="border-t px-6 py-4">
+              <Button onClick={handleCurrencySaveClick}>Save</Button>
+            </CardFooter>
           </Card>
           
           <Card>
@@ -797,6 +878,13 @@ export default function SettingsPage() {
 
         </div>
       </div>
+      <ConfirmCurrencyChangeDialog
+        isOpen={isConfirmDialogOpen}
+        onOpenChange={setIsConfirmDialogOpen}
+        oldCurrency={currentDefaultCurrency}
+        newCurrency={selectedCurrency}
+        onConfirm={handleConfirmation}
+      />
        <DeleteAllTransactionsDialog
         isOpen={isDeleteAllTransactionsDialogOpen}
         onOpenChange={setIsDeleteAllTransactionsDialogOpen}

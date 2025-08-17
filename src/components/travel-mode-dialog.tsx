@@ -1,4 +1,6 @@
 
+'use client';
+
 import {
   Dialog,
   DialogContent,
@@ -51,7 +53,8 @@ export function TravelModeDialog({
     
     useEffect(() => {
         if (isOpen && user) {
-            getAllEvents(user.uid).then(setEvents);
+            const userEvents = getAllEvents(user.uid);
+            setEvents(userEvents);
         }
     }, [isOpen, user]);
 

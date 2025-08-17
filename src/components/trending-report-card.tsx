@@ -30,14 +30,12 @@ export function TrendingReportCard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(() => {
     if (!user) return;
     setIsLoading(true);
     try {
-        const [trans, currency] = await Promise.all([
-            getAllTransactions(user.uid),
-            getDefaultCurrency(user.uid),
-        ]);
+        const trans = getAllTransactions(user.uid);
+        const currency = getDefaultCurrency(user.uid);
         setTransactions(trans);
         setDefaultCurrency(currency);
     } catch (error) {

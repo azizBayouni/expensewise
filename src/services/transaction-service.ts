@@ -33,7 +33,7 @@ export async function addTransaction(userId: string, newTransaction: Omit<AppTra
     }
     
     const { attachments, ...transactionData } = newTransaction;
-    const db = await getDb();
+    const db = getDb();
     const stmt = db.prepare(`
         INSERT INTO transactions (id, userId, date, amount, type, category, wallet, description, currency, attachments, eventId, excludeFromReport)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -44,8 +44,8 @@ export async function addTransaction(userId: string, newTransaction: Omit<AppTra
     }
 }
 
-export async function addTransactions(userId: string, newTransactions: Omit<AppTransaction, 'id' | 'userId' | 'attachments'>[]): Promise<void> {
-    const db = await getDb();
+export function addTransactions(userId: string, newTransactions: Omit<AppTransaction, 'id' | 'userId' | 'attachments'>[]): void {
+    const db = getDb();
     const insertStmt = db.prepare(`
         INSERT INTO transactions (id, userId, date, amount, type, category, wallet, description, currency, eventId, excludeFromReport)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -64,8 +64,8 @@ export async function addTransactions(userId: string, newTransactions: Omit<AppT
     }
 }
 
-export async function getAllTransactions(userId: string): Promise<AppTransaction[]> {
-    const db = await getDb();
+export function getAllTransactions(userId: string): AppTransaction[] {
+    const db = getDb();
     const stmt = db.prepare('SELECT * FROM transactions WHERE userId = ? ORDER BY date DESC');
     const results = stmt.all(userId) as any[];
     return results.map(row => ({
@@ -75,8 +75,8 @@ export async function getAllTransactions(userId: string): Promise<AppTransaction
     }));
 }
 
-export async function getTransactionsForWallet(userId: string, walletName: string): Promise<AppTransaction[]> {
-    const db = await getDb();
+export function getTransactionsForWallet(userId: string, walletName: string): AppTransaction[] {
+    const db = getDb();
     const stmt = db.prepare('SELECT * FROM transactions WHERE userId = ? AND wallet = ? ORDER BY date DESC');
     const results = stmt.all(userId, walletName) as any[];
      return results.map(row => ({
@@ -98,7 +98,7 @@ export async function updateTransaction(userId: string, updatedTransaction: AppT
         finalAttachments = [...finalAttachments, ...newAttachmentUrls];
     }
     
-    const db = await getDb();
+    const db = getDb();
     const stmt = db.prepare(`
         UPDATE transactions 
         SET date = ?, amount = ?, type = ?, category = ?, wallet = ?, description = ?, currency = ?, attachments = ?, eventId = ?, excludeFromReport = ?
@@ -110,8 +110,8 @@ export async function updateTransaction(userId: string, updatedTransaction: AppT
     }
 }
 
-export async function deleteTransaction(userId: string, transactionId: string): Promise<void> {
-    const db = await getDb();
+export function deleteTransaction(userId: string, transactionId: string): void {
+    const db = getDb();
     const stmt = db.prepare('DELETE FROM transactions WHERE id = ? AND userId = ?');
     stmt.run(transactionId, userId);
     if (typeof window !== 'undefined') {
@@ -119,8 +119,8 @@ export async function deleteTransaction(userId: string, transactionId: string): 
     }
 }
 
-export async function deleteAllTransactions(userId: string): Promise<void> {
-    const db = await getDb();
+export function deleteAllTransactions(userId: string): void {
+    const db = getDb();
     const stmt = db.prepare('DELETE FROM transactions WHERE userId = ?');
     stmt.run(userId);
     if (typeof window !== 'undefined') {
@@ -171,8 +171,8 @@ export async function convertAmount(userId: string, amount: number, fromCurrency
 }
 
 export async function convertAllTransactions(userId: string, fromCurrency: string, toCurrency: string): Promise<void> {
-    const db = await getDb();
-    const allTransactions = await getAllTransactions(userId);
+    const db = getDb();
+    const allTransactions = getAllTransactions(userId);
     
     const transactionsToConvert = allTransactions.filter(t => t.currency === fromCurrency);
 

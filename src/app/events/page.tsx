@@ -46,11 +46,11 @@ export default function EventsPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const { toast } = useToast();
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(() => {
     if (!user) return;
     setIsLoading(true);
     try {
-        const userEvents = await getAllEvents(user.uid);
+        const userEvents = getAllEvents(user.uid);
         setEvents(userEvents);
     } catch(error) {
         console.error("Error fetching events:", error);

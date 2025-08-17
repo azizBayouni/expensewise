@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -54,9 +53,9 @@ export function AddWalletDialog({
   const [iconSearch, setIconSearch] = useState('');
   const { toast } = useToast();
   
-  const resetForm = useCallback(async () => {
+  const resetForm = useCallback(() => {
     if (!user) return;
-    const defaultCurrency = await getDefaultCurrency(user.uid);
+    const defaultCurrency = getDefaultCurrency(user.uid);
     setName('');
     setIcon('🏦');
     setInitialBalance(0);
@@ -70,12 +69,12 @@ export function AddWalletDialog({
     }
   }, [isOpen, resetForm]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !name) return;
     
     try {
-      await addWallet(user.uid, {
+      addWallet(user.uid, {
         name,
         icon,
         initialBalance: Number(initialBalance) || 0,

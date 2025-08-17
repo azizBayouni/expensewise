@@ -51,9 +51,9 @@ export function AddDebtDialog({
   const { toast } = useToast();
 
   useEffect(() => {
-    async function fetchDefaultCurrency() {
+    function fetchDefaultCurrency() {
         if (user && isOpen) {
-            const defaultCurrency = await getDefaultCurrency(user.uid);
+            const defaultCurrency = getDefaultCurrency(user.uid);
             setCurrency(defaultCurrency);
         }
     }
@@ -69,7 +69,7 @@ export function AddDebtDialog({
     }
   }, [isOpen, user]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     if (!person || !amount || !dueDate) {
@@ -82,7 +82,7 @@ export function AddDebtDialog({
     }
 
     try {
-      await addDebt(user.uid, {
+      addDebt(user.uid, {
         type,
         person,
         amount: Number(amount),
