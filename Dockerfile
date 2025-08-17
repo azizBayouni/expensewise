@@ -1,48 +1,27 @@
-# Dockerfile
+# Use the official Node.js 20 image.
+FROM node:20-slim
 
-# 1. Official Node.js 20 Alpine image for a lean base
-FROM node:20-alpine AS base
-
-# 2. Set up the builder stage
-FROM base AS builder
+# Set the working directory in the container
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Copy package.json and package-lock.json (or yarn.lock)
 COPY package*.json ./
+
+# Install dependencies
 RUN npm install
 
-# Copy the rest of the application source code
+# Copy the rest of the application's code
 COPY . .
 
-# Build the Next.js application
-RUN npm run build
+# Copy the entrypoint script and make it executable
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# 3. Production image
-FROM base AS runner
-WORKDIR /app
-
-# Set environment to production
-ENV NODE_ENV=production
-
-# Create a non-root user for security
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Copy the standalone output from the builder stage
-# This includes the server, node_modules, and other necessary files
-COPY --from=builder /app/.next/standalone ./
-
-# Copy the public and static assets from their location within the standalone output
-COPY --from=builder /app/.next/static ./.next/static
-
-# Set the correct user for running the application
-USER nextjs
+# Set the entrypoint
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Expose the port the app runs on
 EXPOSE 3000
 
-# Set the correct host for Docker
-ENV HOSTNAME "0.0.0.0"
-
-# Command to start the server
-CMD ["node", "server.js"]
+# The command to run when the container starts
+CMD ["npm", "run", "dev"]
