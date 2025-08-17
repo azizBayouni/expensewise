@@ -22,7 +22,7 @@ const runMigrations = (db: Database.Database) => {
     
     db.pragma('journal_mode = WAL');
     
-    // Create all tables with their correct, final schema
+    // Create all tables first
     db.exec(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT, email TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL, parentId TEXT, icon TEXT);`);
     db.exec(`CREATE TABLE IF NOT EXISTS wallets (id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL, icon TEXT, linkedCategoryIds TEXT, initialBalance REAL NOT NULL DEFAULT 0, isDeletable INTEGER NOT NULL DEFAULT 1, currency TEXT NOT NULL DEFAULT 'USD');`);
@@ -32,32 +32,36 @@ const runMigrations = (db: Database.Database) => {
     db.exec(`CREATE TABLE IF NOT EXISTS settings (userId TEXT PRIMARY KEY, defaultCurrency TEXT, defaultWalletId TEXT, exchangeRateApiKey TEXT, theme TEXT);`);
     
     // ----- Migrations for existing databases -----
+    // Run migrations inside a try-catch block as they may fail on a fresh DB
     try {
         const walletColumns = db.pragma('table_info(wallets)');
         
-        const hasBalance = walletColumns.some(col => col.name === 'balance');
-        const hasInitialBalance = walletColumns.some(col => col.name === 'initialBalance');
-        
-        if (hasBalance && !hasInitialBalance) {
-            db.exec('ALTER TABLE wallets RENAME COLUMN balance TO initialBalance');
-        }
-
+        // Migration: Add isDeletable if it doesn't exist
         const hasIsDeletable = walletColumns.some(col => col.name === 'isDeletable');
         if (!hasIsDeletable) {
             db.exec('ALTER TABLE wallets ADD COLUMN isDeletable INTEGER NOT NULL DEFAULT 1');
         }
+
+        // Migration: Rename 'balance' to 'initialBalance' if old column exists
+        const hasBalance = walletColumns.some(col => col.name === 'balance');
+        const hasInitialBalance = walletColumns.some(col => col.name === 'initialBalance');
+        if (hasBalance && !hasInitialBalance) {
+            db.exec('ALTER TABLE wallets RENAME COLUMN balance TO initialBalance');
+        }
         
+        // Migration: Add currency column if it doesn't exist
         const hasCurrency = walletColumns.some(col => col.name === 'currency');
         if (!hasCurrency) {
             db.exec(`ALTER TABLE wallets ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'`);
         }
 
     } catch(e) { 
-        console.error("A migration failed, which can be normal on first run. Carrying on.", e);
+        console.error("A migration failed, which can be normal on a fresh database. Carrying on.", e);
     }
 
     // --- Post-migration setup ---
 
+    // Ensure dev user exists
     const userStmt = db.prepare('SELECT id FROM users WHERE id = ?');
     const user = userStmt.get('dev-user');
     if (!user) {
@@ -65,12 +69,14 @@ const runMigrations = (db: Database.Database) => {
         insertUser.run('dev-user', 'Dev User', 'dev@expensewise.app');
     }
     
+    // Ensure Main Wallet exists and is correctly flagged
     const mainWalletStmt = db.prepare('SELECT id from wallets WHERE userId = ? AND name = ?');
     let mainWallet = mainWalletStmt.get('dev-user', 'Main Wallet');
     if (!mainWallet) {
         const insertWallet = db.prepare('INSERT INTO wallets (id, userId, name, initialBalance, icon, linkedCategoryIds, isDeletable, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
         insertWallet.run(randomUUID(), 'dev-user', 'Main Wallet', 0, '🏦', '[]', 0, 'USD');
     } else {
+        // Ensure the existing main wallet is not deletable
         const updateStmt = db.prepare('UPDATE wallets SET isDeletable = 0 WHERE id = ?');
         updateStmt.run((mainWallet as {id: string}).id);
     }
@@ -88,3 +94,6 @@ export async function getDb() {
 (async () => {
     await getDb();
 })();
+
+
+
